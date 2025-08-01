@@ -1,0 +1,60 @@
+# Terragon Autonomous SDLC Configuration
+# Value Discovery and Execution Framework
+
+metadata:
+  repository: "formal-circuits-gpt"
+  maturity_level: "developing"
+  last_assessment: "2025-08-01T00:00:00Z"
+  next_assessment: "2025-08-08T00:00:00Z"
+
+scoring:
+  weights:
+    developing:
+      wsjf: 0.5
+      ice: 0.2
+      technicalDebt: 0.2
+      security: 0.1
+  
+  thresholds:
+    minScore: 15
+    maxRisk: 0.7
+    securityBoost: 2.0
+    complianceBoost: 1.8
+
+discovery:
+  sources:
+    - gitHistory
+    - staticAnalysis
+    - issueTrackers
+    - vulnerabilityDatabases
+    - performanceMonitoring
+  
+  tools:
+    staticAnalysis:
+      - mypy
+      - flake8
+      - bandit
+      - safety
+    security:
+      - bandit
+      - safety
+      - semgrep
+    performance:
+      - pytest-benchmark
+
+execution:
+  maxConcurrentTasks: 1
+  testRequirements:
+    minCoverage: 80
+    performanceRegression: 5
+  rollbackTriggers:
+    - testFailure
+    - buildFailure
+    - securityViolation
+
+autonomous_schedule:
+  immediate: "on_pr_merge"
+  hourly: "security_vulnerability_scan"
+  daily: "comprehensive_static_analysis"
+  weekly: "deep_architectural_review"
+  monthly: "strategic_value_recalibration"
