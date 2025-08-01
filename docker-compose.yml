@@ -1,0 +1,44 @@
+# Docker Compose for formal-circuits-gpt development environment
+
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/workspace
+      - theorem-provers:/opt/theorem-provers
+    environment:
+      - PYTHONPATH=/workspace/src
+    working_dir: /workspace
+    command: bash
+
+  isabelle:
+    image: makarius/isabelle:Isabelle2023
+    volumes:
+      - theorem-provers:/opt/isabelle
+    command: tail -f /dev/null
+
+  coq:
+    image: coqorg/coq:8.17
+    volumes:
+      - theorem-provers:/opt/coq
+    command: tail -f /dev/null
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    volumes:
+      - .:/workspace
+    environment:
+      - PYTHONPATH=/workspace/src
+    working_dir: /workspace
+    command: pytest --cov=formal_circuits_gpt
+
+volumes:
+  theorem-provers:
