@@ -60,3 +60,23 @@ publish-test:  ## Publish to Test PyPI
 
 publish:  ## Publish to PyPI
 	python -m twine upload dist/*
+
+verify-setup:  ## Verify development setup
+	formal-circuits-gpt --check-setup
+
+benchmark:  ## Run benchmarks
+	python -m pytest tests/benchmarks/ -v
+
+example:  ## Run example verification
+	formal-circuits-gpt verify examples/simple_adder.v
+
+dev-setup:  ## Complete development setup
+	$(MAKE) install-dev
+	$(MAKE) verify-setup
+	@echo "✅ Development setup complete!"
+
+ci:  ## Run CI pipeline locally
+	$(MAKE) lint
+	$(MAKE) type-check
+	$(MAKE) security
+	$(MAKE) test-cov
