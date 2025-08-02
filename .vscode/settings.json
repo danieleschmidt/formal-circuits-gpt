@@ -1,0 +1,170 @@
+{
+  // Python configuration
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  
+  // Linting configuration
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": [
+    "--max-line-length=88",
+    "--extend-ignore=E203,W503",
+    "--exclude=.git,__pycache__,build,dist,*.egg-info,.venv,.tox"
+  ],
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyArgs": ["--ignore-missing-imports"],
+  
+  // Formatting configuration
+  "python.formatting.provider": "none",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    },
+    "editor.rulers": [88]
+  },
+  
+  // Import sorting
+  "isort.args": [
+    "--profile", "black",
+    "--line-length", "88"
+  ],
+  
+  // Testing configuration
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "tests/",
+    "-v",
+    "--tb=short"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.autoTestDiscoverOnSaveEnabled": true,
+  
+  // File associations and exclusions
+  "files.associations": {
+    "*.v": "verilog",
+    "*.vh": "verilog", 
+    "*.sv": "systemverilog",
+    "*.vhd": "vhdl",
+    "*.vhdl": "vhdl",
+    "*.thy": "isabelle",
+    "*.prop": "yaml"
+  },
+  
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.coverage": true,
+    "**/htmlcov": true,
+    "**/.tox": true,
+    "**/dist": true,
+    "**/*.egg-info": true,
+    "**/verification_cache": true,
+    "**/proof_artifacts": true,
+    "**/.formal-circuits-gpt": true
+  },
+  
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/verification_cache/**": true,
+    "**/proof_artifacts/**": true
+  },
+  
+  // Editor configuration
+  "editor.rulers": [88, 100],
+  "editor.insertSpaces": true,
+  "editor.tabSize": 4,
+  "editor.detectIndentation": false,
+  "editor.trimAutoWhitespace": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  
+  // Search configuration
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/.venv": true,
+    "**/venv": true,
+    "**/verification_cache": true,
+    "**/proof_artifacts": true,
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  },
+  
+  // Terminal configuration
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.osx": "bash",
+  "terminal.integrated.env.linux": {
+    "PYTHONPATH": "${workspaceFolder}/src"
+  },
+  "terminal.integrated.env.osx": {
+    "PYTHONPATH": "${workspaceFolder}/src"
+  },
+  
+  // Git configuration
+  "git.ignoreLimitWarning": true,
+  "git.autofetch": true,
+  
+  // Language-specific settings
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.tabSize": 2
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.tabSize": 2
+  },
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": false,
+    "files.trimTrailingWhitespace": false
+  },
+  
+  // Extension-specific settings
+  "jupyter.askForKernelRestart": false,
+  "jupyter.interactiveWindowMode": "perFile",
+  
+  // Code coverage display
+  "coverage-gutters.showGutterCoverage": true,
+  "coverage-gutters.showLineCoverage": true,
+  "coverage-gutters.showRulerCoverage": true,
+  
+  // Spell checking (if extension installed)
+  "cSpell.words": [
+    "formal",
+    "circuits",
+    "gpt",
+    "verilog",
+    "vhdl",
+    "systemverilog",
+    "isabelle",
+    "coq",
+    "prover",
+    "theorem",
+    "verification",
+    "hdl"
+  ],
+  
+  // Auto-save configuration
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  
+  // Workspace trust
+  "security.workspace.trust.untrustedFiles": "open",
+  
+  // Integrated terminal
+  "terminal.integrated.scrollback": 10000,
+  
+  // Performance
+  "typescript.surveys.enabled": false,
+  "workbench.enableExperiments": false
+}

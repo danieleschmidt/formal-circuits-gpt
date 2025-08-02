@@ -1,0 +1,95 @@
+{
+  "name": "Formal-Circuits-GPT Development",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-bullseye",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.flake8",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "ms-python.mypy-type-checker",
+        "ms-toolsai.jupyter",
+        "redhat.vscode-yaml",
+        "ms-vscode.makefile-tools",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ms-vscode.test-adapter-converter",
+        "littlefoxteam.vscode-python-test-adapter",
+        "formulahendry.auto-rename-tag"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.linting.flake8Args": ["--max-line-length=88", "--extend-ignore=E203,W503"],
+        "python.formatting.provider": "none",
+        "python.formatting.blackProvider": "black",
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+          }
+        },
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests/"],
+        "python.testing.unittestEnabled": false,
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/*.pyc": true,
+          "**/.pytest_cache": true,
+          "**/.mypy_cache": true,
+          "**/.coverage": true,
+          "**/htmlcov": true,
+          "**/.tox": true,
+          "**/dist": true,
+          "**/*.egg-info": true
+        },
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "editor.rulers": [88],
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true
+      }
+    }
+  },
+
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  
+  "mounts": [
+    "source=${localWorkspaceFolder}/.git,target=/workspaces/formal-circuits-gpt/.git,type=bind",
+    "source=formal-circuits-gpt-venv,target=/opt/venv,type=volume"
+  ],
+
+  "containerEnv": {
+    "PYTHONPATH": "/workspaces/formal-circuits-gpt/src",
+    "VIRTUAL_ENV": "/opt/venv",
+    "PATH": "/opt/venv/bin:${PATH}"
+  },
+
+  "remoteUser": "vscode",
+  
+  "forwardPorts": [8000, 8080, 5000],
+  
+  "portsAttributes": {
+    "8000": {
+      "label": "Documentation Server",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Development Server",
+      "onAutoForward": "silent"
+    },
+    "5000": {
+      "label": "API Server",
+      "onAutoForward": "notify"
+    }
+  }
+}

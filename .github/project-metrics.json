@@ -1,0 +1,271 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-08-02T16:45:00Z",
+  "repository": {
+    "name": "formal-circuits-gpt",
+    "owner": "danieleschmidt",
+    "description": "LLM-Assisted Hardware Verification for Verilog/VHDL circuits",
+    "primary_language": "Python",
+    "license": "MIT"
+  },
+  "metrics": {
+    "code_quality": {
+      "test_coverage": {
+        "target": 85,
+        "current": 0,
+        "trend": "stable",
+        "measurement_method": "pytest-cov",
+        "exclusions": ["tests/", "docs/", "examples/"]
+      },
+      "code_complexity": {
+        "target": 10,
+        "current": 0,
+        "trend": "improving",
+        "measurement_method": "radon",
+        "threshold": "B"
+      },
+      "technical_debt": {
+        "target": "low",
+        "current": "medium",
+        "trend": "improving",
+        "measurement_method": "sonarqube",
+        "debt_ratio": 0.05
+      },
+      "security_vulnerabilities": {
+        "target": 0,
+        "current": 0,
+        "trend": "stable",
+        "measurement_method": "bandit + safety",
+        "severity_threshold": "medium"
+      }
+    },
+    "development_velocity": {
+      "commits_per_week": {
+        "target": 10,
+        "current": 15,
+        "trend": "increasing",
+        "rolling_average_weeks": 4
+      },
+      "pull_requests_per_week": {
+        "target": 3,
+        "current": 2,
+        "trend": "stable",
+        "average_review_time_hours": 24
+      },
+      "issue_resolution_time": {
+        "target": 48,
+        "current": 72,
+        "trend": "improving",
+        "unit": "hours",
+        "measurement_method": "median"
+      },
+      "feature_lead_time": {
+        "target": 14,
+        "current": 21,
+        "trend": "improving",
+        "unit": "days",
+        "measurement_method": "feature_branch_to_main"
+      }
+    },
+    "performance": {
+      "verification_success_rate": {
+        "target": 90,
+        "current": 0,
+        "trend": "stable",
+        "unit": "percentage",
+        "measurement_method": "automated_tests"
+      },
+      "average_verification_time": {
+        "target": 60,
+        "current": 0,
+        "trend": "stable",
+        "unit": "seconds",
+        "circuit_size": "small"
+      },
+      "memory_usage": {
+        "target": 2048,
+        "current": 0,
+        "trend": "stable",
+        "unit": "MB",
+        "measurement_method": "peak_usage"
+      },
+      "api_response_time": {
+        "target": 5,
+        "current": 0,
+        "trend": "stable",
+        "unit": "seconds",
+        "percentile": "95th"
+      }
+    },
+    "reliability": {
+      "uptime": {
+        "target": 99.9,
+        "current": 100,
+        "trend": "stable",
+        "unit": "percentage",
+        "measurement_period": "monthly"
+      },
+      "error_rate": {
+        "target": 1,
+        "current": 0,
+        "trend": "stable",
+        "unit": "percentage",
+        "measurement_method": "failed_requests"
+      },
+      "mttr": {
+        "target": 2,
+        "current": 0,
+        "trend": "stable",
+        "unit": "hours",
+        "description": "mean_time_to_recovery"
+      },
+      "deployment_success_rate": {
+        "target": 98,
+        "current": 100,
+        "trend": "stable",
+        "unit": "percentage",
+        "measurement_method": "ci_cd_pipeline"
+      }
+    },
+    "user_engagement": {
+      "monthly_active_users": {
+        "target": 100,
+        "current": 0,
+        "trend": "growing",
+        "measurement_method": "telemetry",
+        "privacy_compliant": true
+      },
+      "verification_requests_per_day": {
+        "target": 500,
+        "current": 0,
+        "trend": "growing",
+        "measurement_method": "application_logs"
+      },
+      "user_satisfaction": {
+        "target": 4.5,
+        "current": 0,
+        "trend": "stable",
+        "scale": "1-5",
+        "measurement_method": "surveys"
+      },
+      "github_stars": {
+        "target": 1000,
+        "current": 0,
+        "trend": "growing",
+        "measurement_method": "github_api"
+      }
+    },
+    "business": {
+      "feature_adoption_rate": {
+        "target": 80,
+        "current": 0,
+        "trend": "stable",
+        "unit": "percentage",
+        "measurement_period": "30_days_post_release"
+      },
+      "user_retention": {
+        "target": 70,
+        "current": 0,
+        "trend": "stable",
+        "unit": "percentage",
+        "measurement_period": "30_days"
+      },
+      "community_contributions": {
+        "target": 10,
+        "current": 0,
+        "trend": "growing",
+        "unit": "contributors_per_month",
+        "measurement_method": "github_contributors"
+      },
+      "documentation_coverage": {
+        "target": 95,
+        "current": 85,
+        "trend": "improving",
+        "unit": "percentage",
+        "measurement_method": "api_endpoints_documented"
+      }
+    }
+  },
+  "automation": {
+    "ci_cd": {
+      "build_time": {
+        "target": 10,
+        "current": 0,
+        "trend": "stable",
+        "unit": "minutes",
+        "measurement_method": "github_actions"
+      },
+      "test_execution_time": {
+        "target": 5,
+        "current": 0,
+        "trend": "stable",
+        "unit": "minutes",
+        "measurement_method": "pytest_duration"
+      },
+      "deployment_frequency": {
+        "target": 1,
+        "current": 0,
+        "trend": "stable",
+        "unit": "deployments_per_week",
+        "measurement_method": "release_tags"
+      }
+    },
+    "monitoring": {
+      "alert_noise": {
+        "target": 5,
+        "current": 0,
+        "trend": "stable",
+        "unit": "false_positives_per_week",
+        "measurement_method": "alert_manager"
+      },
+      "monitoring_coverage": {
+        "target": 90,
+        "current": 70,
+        "trend": "improving",
+        "unit": "percentage",
+        "measurement_method": "service_endpoints_monitored"
+      }
+    },
+    "security": {
+      "vulnerability_scan_frequency": {
+        "target": 1,
+        "current": 1,
+        "trend": "stable",
+        "unit": "scans_per_day",
+        "measurement_method": "automated_security_scans"
+      },
+      "dependency_update_lag": {
+        "target": 7,
+        "current": 14,
+        "trend": "improving",
+        "unit": "days",
+        "measurement_method": "dependabot_pr_age"
+      }
+    }
+  },
+  "reporting": {
+    "frequency": "weekly",
+    "stakeholders": [
+      "development_team",
+      "product_owner",
+      "engineering_manager"
+    ],
+    "dashboards": {
+      "development": "https://grafana.example.com/d/dev-dashboard",
+      "operations": "https://grafana.example.com/d/ops-dashboard",
+      "business": "https://metabase.example.com/dashboard/business"
+    },
+    "alerts": {
+      "slack_channel": "#formal-circuits-alerts",
+      "email_list": "team@example.com",
+      "escalation_policy": "pagerduty://formal-circuits"
+    }
+  },
+  "data_collection": {
+    "privacy_policy": "https://example.com/privacy",
+    "data_retention": "90_days",
+    "anonymization": true,
+    "opt_out_available": true,
+    "gdpr_compliant": true
+  }
+}
