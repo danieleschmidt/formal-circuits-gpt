@@ -39,6 +39,46 @@ services:
       - PYTHONPATH=/workspace/src
     working_dir: /workspace
     command: pytest --cov=formal_circuits_gpt
+    depends_on:
+      - app
+
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/workspace
+      - docs-build:/workspace/docs/_build
+    working_dir: /workspace
+    ports:
+      - "8000:8000"
+    command: bash -c "cd docs && python -m http.server 8000"
+
+  lint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/workspace
+    environment:
+      - PYTHONPATH=/workspace/src
+    working_dir: /workspace
+    command: bash -c "make lint && make type-check"
+
+  security:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - .:/workspace
+    environment:
+      - PYTHONPATH=/workspace/src
+    working_dir: /workspace
+    command: make security
 
 volumes:
   theorem-provers:
+  docs-build:

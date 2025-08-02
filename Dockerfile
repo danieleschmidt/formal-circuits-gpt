@@ -3,13 +3,23 @@
 # Base stage with Python and system dependencies
 FROM python:3.11-slim as base
 
-# Install system dependencies
+# Install system dependencies and theorem provers
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     wget \
     curl \
+    openjdk-11-jre-headless \
+    coq \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Isabelle
+RUN wget -q https://isabelle.in.tum.de/dist/Isabelle2024.tar.gz \
+    && tar -xzf Isabelle2024.tar.gz \
+    && mv Isabelle2024 /opt/ \
+    && ln -s /opt/Isabelle2024/bin/isabelle /usr/local/bin/isabelle \
+    && rm Isabelle2024.tar.gz
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
