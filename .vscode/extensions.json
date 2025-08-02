@@ -1,0 +1,69 @@
+{
+    "recommendations": [
+        // Python Development
+        "ms-python.python",
+        "ms-python.flake8",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "ms-python.mypy-type-checker",
+        "ms-python.pylint",
+        
+        // Testing
+        "ms-vscode.test-adapter-converter",
+        "hbenl.vscode-test-explorer",
+        "ryanluker.vscode-coverage-gutters",
+        
+        // Git and Version Control
+        "eamodio.gitlens",
+        "GitHub.vscode-pull-request-github",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        
+        // Code Quality and Analysis
+        "streetsidesoftware.code-spell-checker",
+        "shardulm94.trailing-spaces",
+        "editorconfig.editorconfig",
+        
+        // Documentation and Markdown
+        "yzhang.markdown-all-in-one",
+        "bierner.markdown-mermaid",
+        "DavidAnson.vscode-markdownlint",
+        "yzane.markdown-pdf",
+        
+        // Configuration Files
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json",
+        "tamasfe.even-better-toml",
+        
+        // Docker and Containers
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
+        
+        // Hardware Description Languages
+        "mshr-h.veriloghdl",
+        "puorc.awesome-vhdl",
+        
+        // Productivity
+        "ms-vscode.vscode-todo-highlight",
+        "gruntfuggly.todo-tree",
+        "aaron-bond.better-comments",
+        "alefragnani.bookmarks",
+        
+        // Theme and UI
+        "PKief.material-icon-theme",
+        "zhuangtongfa.Material-theme",
+        
+        // Miscellaneous
+        "ms-vscode.hexeditor",
+        "ms-vscode.vscode-json",
+        "bradlc.vscode-tailwindcss"
+    ],
+    "unwantedRecommendations": [
+        // Avoid conflicting Python extensions
+        "ms-python.vscode-pylance",  // Use mypy instead
+        
+        // Avoid heavy extensions that might slow down VS Code
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools"
+    ]
+}

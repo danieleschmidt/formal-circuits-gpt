@@ -1,0 +1,272 @@
+{
+  // Python Configuration
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.envFile": "${workspaceFolder}/.env",
+  
+  // Linting and Type Checking
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": [
+    "--max-line-length=88",
+    "--extend-ignore=E203,W503"
+  ],
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyArgs": [
+    "--strict",
+    "--show-error-codes"
+  ],
+  "python.linting.pylintEnabled": false,
+  
+  // Formatting
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": [
+    "--line-length=88"
+  ],
+  
+  // Import Sorting
+  "python.sortImports.provider": "isort",
+  "isort.args": [
+    "--profile=black"
+  ],
+  
+  // Testing
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": [
+    "tests",
+    "-v",
+    "--tb=short"
+  ],
+  "python.testing.autoTestDiscoverOnSaveEnabled": true,
+  
+  // Editor Settings
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true,
+    "source.fixAll.flake8": true
+  },
+  "editor.rulers": [88],
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "editor.trimAutoWhitespace": true,
+  
+  // File Associations
+  "files.associations": {
+    "*.v": "verilog",
+    "*.vhd": "vhdl",
+    "*.vhdl": "vhdl",
+    "*.sv": "systemverilog",
+    "*.thy": "isabelle",
+    "Dockerfile*": "dockerfile",
+    "*.yaml": "yaml",
+    "*.yml": "yaml"
+  },
+  
+  // File Exclusions
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.coverage": true,
+    "**/htmlcov": true,
+    "**/.tox": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/*.egg-info": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/.vscode/settings.json": false
+  },
+  
+  // Search Exclusions  
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/*.egg-info": true
+  },
+  
+  // Terminal
+  "terminal.integrated.env.linux": {
+    "PYTHONPATH": "${workspaceFolder}/src"
+  },
+  "terminal.integrated.env.osx": {
+    "PYTHONPATH": "${workspaceFolder}/src"
+  },
+  "terminal.integrated.env.windows": {
+    "PYTHONPATH": "${workspaceFolder}/src"
+  },
+  
+  // Git
+  "git.ignoreLimitWarning": true,
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+  
+  // YAML
+  "yaml.schemas": {
+    "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.{yml,yaml}",
+    "https://json.schemastore.org/github-action.json": "action.{yml,yaml}",
+    "https://json.schemastore.org/dependabot-2.0.json": ".github/dependabot.{yml,yaml}",
+    "https://json.schemastore.org/pre-commit-config.json": ".pre-commit-config.{yml,yaml}"
+  },
+  "yaml.customTags": [
+    "!ENV scalar",
+    "!ENV sequence",
+    "!reference sequence"
+  ],
+  
+  // JSON
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "package.json"
+      ],
+      "url": "https://json.schemastore.org/package.json"
+    },
+    {
+      "fileMatch": [
+        "pyproject.toml"
+      ],
+      "url": "https://json.schemastore.org/pyproject.json"
+    }
+  ],
+  
+  // Markdown
+  "markdown.preview.doubleClickToSwitchToEditor": false,
+  "markdown.preview.markEditorSelection": true,
+  "[markdown]": {
+    "editor.defaultFormatter": "yzhang.markdown-all-in-one",
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    }
+  },
+  
+  // Spell Checker
+  "cSpell.words": [
+    "formal",
+    "circuits",
+    "verilog",
+    "vhdl",
+    "isabelle",
+    "coq",
+    "pytest",
+    "mypy",
+    "flake8",
+    "isort",
+    "pydantic",
+    "anthropic",
+    "openai",
+    "terragon",
+    "fcg",
+    "hdl",
+    "prover",
+    "theorem",
+    "combinational",
+    "sequential"
+  ],
+  
+  // Extension Specific Settings
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.completeFunctionParens": true,
+  
+  // Test Explorer
+  "testExplorer.useNativeTesting": true,
+  
+  // Code Coverage
+  "coverage-gutters.coverageFileNames": [
+    "coverage.xml",
+    "coverage.lcov",
+    "cov.xml",
+    "coverage.json"
+  ],
+  "coverage-gutters.showLineCoverage": true,
+  "coverage-gutters.showRulerCoverage": true,
+  
+  // Docker
+  "docker.defaultRegistryPath": "ghcr.io/danieleschmidt",
+  
+  // Task Runner
+  "task.autoDetect": "on",
+  "task.showDecorations": true,
+  
+  // Workspace Trust
+  "security.workspace.trust.untrustedFiles": "open",
+  
+  // Breadcrumbs
+  "breadcrumbs.enabled": true,
+  "breadcrumbs.symbolPath": "on",
+  
+  // Explorer
+  "explorer.confirmDelete": true,
+  "explorer.confirmDragAndDrop": true,
+  "explorer.sortOrder": "type",
+  
+  // Problems
+  "problems.decorations.enabled": true,
+  "problems.showCurrentInStatus": true,
+  
+  // Extensions
+  "extensions.autoCheckUpdates": true,
+  "extensions.autoUpdate": false,
+  
+  // Telemetry (disable for privacy)
+  "telemetry.telemetryLevel": "off",
+  
+  // Custom Tasks and Shortcuts
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#1f1f1f",
+    "activityBar.foreground": "#ffffff",
+    "statusBar.background": "#0066cc",
+    "statusBar.foreground": "#ffffff"
+  },
+  
+  // Language Specific Settings
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    }
+  },
+  
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2
+  },
+  
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2
+  },
+  
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2
+  },
+  
+  "[toml]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2
+  },
+  
+  // Custom Snippets and IntelliSense
+  "editor.snippetSuggestions": "top",
+  "editor.suggest.snippetsPreventQuickSuggestions": false,
+  "intelliSenseEngine.fallback": "Pylance"
+}
