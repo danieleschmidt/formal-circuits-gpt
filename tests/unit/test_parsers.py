@@ -1,8 +1,10 @@
 """Unit tests for HDL parsers."""
 
 import pytest
-from formal_circuits_gpt.parsers import VerilogParser, VHDLParser, ParseError
-from tests.fixtures import SIMPLE_FIXTURES, BUGGY_FIXTURES
+from formal_circuits_gpt.parsers import VerilogParser, VHDLParser
+from formal_circuits_gpt.parsers.ast_nodes import CircuitAST, Module, Port, Signal, SignalType
+from formal_circuits_gpt.parsers.verilog_parser import VerilogParseError
+from formal_circuits_gpt.parsers.vhdl_parser import VHDLParseError
 
 
 class TestVerilogParser:
