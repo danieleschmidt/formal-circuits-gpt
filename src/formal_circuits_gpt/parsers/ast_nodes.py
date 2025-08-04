@@ -192,6 +192,10 @@ class CircuitAST:
             all_signals = {p.name for p in module.ports} | {s.name for s in module.signals}
             for assignment in module.assignments:
                 if assignment.target not in all_signals:
-                    errors.append(f"Module {module.name}: Undefined signal '{assignment.target}'")
+                    # Check if it's an output port (outputs can be assigned to)
+                    is_output = any(p.name == assignment.target and p.signal_type == SignalType.OUTPUT 
+                                  for p in module.ports)
+                    if not is_output:
+                        errors.append(f"Module {module.name}: Undefined signal '{assignment.target}'")
         
         return errors

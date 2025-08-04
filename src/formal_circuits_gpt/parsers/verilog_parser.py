@@ -139,9 +139,10 @@ class VerilogParser:
         """Parse module ports."""
         ports = []
         
-        # Parse port directions from module body
-        port_directions = {}
-        for match in self.port_pattern.finditer(module_body):
+        # Parse port declarations from port list (Verilog-2001 style)
+        combined_text = port_list + "\n" + module_body
+        
+        for match in self.port_pattern.finditer(combined_text):
             direction = match.group(1)
             msb = int(match.group(2)) if match.group(2) else None
             lsb = int(match.group(3)) if match.group(3) else None
@@ -158,18 +159,6 @@ class VerilogParser:
                 lsb=lsb
             )
             ports.append(port)
-            port_directions[name] = port
-        
-        # If ports are declared in port list only, infer from usage
-        if not ports and port_list.strip():
-            port_names = [name.strip() for name in port_list.split(',') if name.strip()]
-            for name in port_names:
-                # Try to find direction in module body
-                if name in port_directions:
-                    ports.append(port_directions[name])
-                else:
-                    # Default to input if not found
-                    ports.append(Port(name=name, signal_type=SignalType.INPUT))
         
         return ports
     
