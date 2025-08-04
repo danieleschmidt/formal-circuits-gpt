@@ -62,7 +62,7 @@ class CoqTranslator:
             raise CoqTranslationError(f"Failed to translate to Coq: {str(e)}") from e
     
     def _generate_header(self) -> str:
-        \"\"\"Generate Coq file header with requires.\"\"\"
+        """Generate Coq file header with requires."""
         header = []
         for req in self.requires:
             header.append(f"Require Import {req}.")
@@ -76,7 +76,7 @@ class CoqTranslator:
         return "\n".join(header)
     
     def _generate_type_definitions(self, ast: CircuitAST) -> str:
-        \"\"\"Generate type definitions for signals and values.\"\"\"
+        """Generate type definitions for signals and values."""
         content = []
         
         content.append("(* Basic types for hardware modeling *)")
@@ -111,7 +111,7 @@ class CoqTranslator:
         return "\n".join(content)
     
     def _translate_module(self, module: Module) -> str:
-        \"\"\"Translate a single module to Coq function.\"\"\"
+        """Translate a single module to Coq function."""
         content = []
         
         content.append(f"(* Module: {module.name} *)")
@@ -150,7 +150,7 @@ class CoqTranslator:
         return "\n".join(content)
     
     def _generate_return_type(self, output_ports: List[Port]) -> str:
-        \"\"\"Generate return type for module function.\"\"\"
+        """Generate return type for module function."""
         if len(output_ports) == 1:
             port = output_ports[0]
             if port.width > 1:
@@ -168,7 +168,7 @@ class CoqTranslator:
             return f"({' * '.join(types)})"
     
     def _generate_function_body(self, module: Module, input_ports: List[Port], output_ports: List[Port]) -> str:
-        \"\"\"Generate function body for module.\"\"\"
+        """Generate function body for module."""
         # Simple implementation - translate assignments
         if len(output_ports) == 1 and module.assignments:
             # Find assignment for output
@@ -200,7 +200,7 @@ class CoqTranslator:
             return output_exprs[0] if output_exprs else "false"
     
     def _translate_expression(self, expression: str) -> str:
-        \"\"\"Translate HDL expression to Coq.\"\"\"
+        """Translate HDL expression to Coq."""
         # Basic expression translation
         expr = expression.strip()
         
@@ -219,7 +219,7 @@ class CoqTranslator:
         return expr
     
     def _translate_assignment_to_definition(self, assignment: Assignment, module: Module, def_name: str) -> str:
-        \"\"\"Translate assignment to Coq definition.\"\"\"
+        """Translate assignment to Coq definition."""
         target = assignment.target
         expression = self._translate_expression(assignment.expression)
         
@@ -239,7 +239,7 @@ class CoqTranslator:
         return definition
     
     def _generate_properties(self, ast: CircuitAST) -> str:
-        \"\"\"Generate correctness properties for the circuit.\"\"\"
+        """Generate correctness properties for the circuit."""
         content = []
         
         content.append("(* Correctness Properties *)")
@@ -277,7 +277,7 @@ class CoqTranslator:
         return "\n".join(content)
     
     def generate_verification_goals(self, ast: CircuitAST, properties: List[str]) -> str:
-        \"\"\"Generate verification goals for given properties.\"\"\"
+        """Generate verification goals for given properties."""
         content = []
         
         content.append("(* Verification Goals *)")
