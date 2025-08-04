@@ -348,9 +348,9 @@ class MyProver(BaseProver):
 ```bibtex
 @software{formal_circuits_gpt,
   title={Formal-Circuits-GPT: LLM-Assisted Hardware Verification},
-  author={Your Name},
+  author={Daniel Schmidt},
   year={2025},
-  url={https://github.com/yourusername/formal-circuits-gpt}
+  url={https://github.com/danieleschmidt/formal-circuits-gpt}
 }
 
 @article{mit_llm_circuits_2025,
