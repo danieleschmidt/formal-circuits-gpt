@@ -1,10 +1,10 @@
 """Advanced optimized caching system for formal-circuits-gpt."""
 
 import os
-import pickle
+import json
+import pickle  # Only for backward compatibility, prefer JSON when possible
 import hashlib
 import time
-import json
 from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass, asdict
