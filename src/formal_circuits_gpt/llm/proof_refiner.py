@@ -14,13 +14,26 @@ class ProofRefinementError(Exception):
 class ProofRefiner:
     """Refines formal proofs by fixing errors using LLMs."""
     
-    def __init__(self, llm_manager: Optional[LLMManager] = None):
+    def __init__(self, llm_manager: Optional[LLMManager] = None, provider=None, max_rounds: int = 5):
         """Initialize proof refiner.
         
         Args:
             llm_manager: LLM manager instance (creates default if None)
+            provider: LLM provider (for backward compatibility)
+            max_rounds: Maximum refinement rounds (for backward compatibility)
         """
-        self.llm_manager = llm_manager or LLMManager.create_default()
+        if provider is not None:
+            # Backward compatibility: create manager from provider
+            from .llm_client import LLMManager
+            manager = LLMManager()
+            manager.add_client("default", provider, set_as_default=True)
+            self.llm_manager = manager
+            self.provider = provider  # Store for backward compatibility
+        else:
+            self.llm_manager = llm_manager or LLMManager.create_default()
+            self.provider = None
+        
+        self.max_rounds = max_rounds
         self.prompt_manager = PromptManager()
         self.response_parser = ResponseParser()
     
@@ -279,3 +292,26 @@ Please provide the completed proof with all necessary steps:"""
         # Final validation
         success, _ = validator_func(current_proof)
         return current_proof, success
+    
+    # Backward compatibility methods for tests
+    def refine_failed_proof(self, failed_proof: str, error_message: str, attempt_number: int = 1) -> str:
+        """Refine a failed proof (backward compatibility method)."""
+        if attempt_number > self.max_rounds:
+            from .llm_client import LLMError
+            raise LLMError(f"Maximum refinement rounds ({self.max_rounds}) exceeded")
+        
+        if self.provider and hasattr(self.provider, 'refine_proof'):
+            # Use provider directly for backward compatibility
+            return self.provider.refine_proof(failed_proof, error_message)
+        else:
+            refined_proof, success = self.refine_proof(
+                original_proof=failed_proof,
+                errors=[error_message],
+                max_attempts=1
+            )
+            
+            if not success:
+                from .llm_client import LLMError
+                raise LLMError("Proof refinement failed")
+            
+            return refined_proof
