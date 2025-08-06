@@ -124,6 +124,9 @@ class TestAnthropicProvider:
             mock_client = Mock()
             mock_response = Mock()
             mock_response.content = [Mock(text="Generated proof")]
+            mock_response.usage.input_tokens = 10
+            mock_response.usage.output_tokens = 20
+            mock_response.stop_reason = "end_turn"
             mock_client.messages.create.return_value = mock_response
             mock_anthropic.return_value = mock_client
             

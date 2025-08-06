@@ -30,7 +30,10 @@ class LLMResponse:
 
 class LLMError(Exception):
     """Base exception for LLM errors."""
-    pass
+    def __init__(self, message: str, provider: str = None, model: str = None):
+        super().__init__(message)
+        self.provider = provider
+        self.model = model
 
 
 class LLMClient(ABC):
@@ -65,6 +68,42 @@ class OpenAIClient(LLMClient):
             self.sync_client = openai.OpenAI(api_key=self.api_key)
         except ImportError:
             raise LLMError("OpenAI package not installed. Run: pip install openai")
+    
+    def generate_proof(self, prompt: str, **kwargs) -> str:
+        """Generate proof using OpenAI API (synchronous)."""
+        response = self.generate_sync(prompt, **kwargs)
+        return response.content
+    
+    def refine_proof(self, proof: str, error_message: str, **kwargs) -> str:
+        """Refine proof based on error feedback."""
+        refinement_prompt = f"""The following proof has errors. Please fix them and provide a corrected version.
+
+ORIGINAL PROOF:
+{proof}
+
+ERRORS:
+{error_message}
+
+Please provide the corrected proof addressing all the errors above:"""
+        
+        response = self.generate_sync(refinement_prompt, **kwargs)
+        return response.content
+    
+    def estimate_cost(self, prompt: str) -> float:
+        """Estimate cost for the prompt in USD."""
+        # Rough token estimation (4 chars per token)
+        input_tokens = len(prompt) // 4
+        # Assume similar output length
+        output_tokens = input_tokens
+        
+        # GPT-4 pricing (approximate as of 2024)
+        input_cost_per_token = 0.00003  # $0.03 per 1K tokens
+        output_cost_per_token = 0.00006  # $0.06 per 1K tokens
+        
+        total_cost = (input_tokens * input_cost_per_token + 
+                     output_tokens * output_cost_per_token)
+        
+        return total_cost
     
     async def generate(self, prompt: str, **kwargs) -> LLMResponse:
         """Generate response using OpenAI API."""
@@ -132,6 +171,42 @@ class AnthropicClient(LLMClient):
             self.sync_client = anthropic.Anthropic(api_key=self.api_key)
         except ImportError:
             raise LLMError("Anthropic package not installed. Run: pip install anthropic")
+    
+    def generate_proof(self, prompt: str, **kwargs) -> str:
+        """Generate proof using Anthropic API (synchronous)."""
+        response = self.generate_sync(prompt, **kwargs)
+        return response.content
+    
+    def refine_proof(self, proof: str, error_message: str, **kwargs) -> str:
+        """Refine proof based on error feedback."""
+        refinement_prompt = f"""The following proof has errors. Please fix them and provide a corrected version.
+
+ORIGINAL PROOF:
+{proof}
+
+ERRORS:
+{error_message}
+
+Please provide the corrected proof addressing all the errors above:"""
+        
+        response = self.generate_sync(refinement_prompt, **kwargs)
+        return response.content
+    
+    def estimate_cost(self, prompt: str) -> float:
+        """Estimate cost for the prompt in USD."""
+        # Rough token estimation (4 chars per token)
+        input_tokens = len(prompt) // 4
+        # Assume similar output length  
+        output_tokens = input_tokens
+        
+        # Claude pricing (approximate as of 2024)
+        input_cost_per_token = 0.000015  # $0.015 per 1K tokens
+        output_cost_per_token = 0.000075  # $0.075 per 1K tokens
+        
+        total_cost = (input_tokens * input_cost_per_token + 
+                     output_tokens * output_cost_per_token)
+        
+        return total_cost
     
     async def generate(self, prompt: str, **kwargs) -> LLMResponse:
         """Generate response using Anthropic API."""

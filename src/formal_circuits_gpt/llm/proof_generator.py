@@ -14,13 +14,24 @@ class ProofGenerationError(Exception):
 class ProofGenerator:
     """Generates formal proofs using LLMs."""
     
-    def __init__(self, llm_manager: Optional[LLMManager] = None):
+    def __init__(self, llm_manager: Optional[LLMManager] = None, provider=None):
         """Initialize proof generator.
         
         Args:
             llm_manager: LLM manager instance (creates default if None)
+            provider: LLM provider (for backward compatibility)
         """
-        self.llm_manager = llm_manager or LLMManager.create_default()
+        if provider is not None:
+            # Backward compatibility: create manager from provider
+            from .llm_client import LLMManager
+            manager = LLMManager()
+            manager.add_client("default", provider, set_as_default=True)
+            self.llm_manager = manager
+            self.provider = provider  # Store for backward compatibility
+        else:
+            self.llm_manager = llm_manager or LLMManager.create_default()
+            self.provider = None
+        
         self.prompt_manager = PromptManager()
         self.response_parser = ResponseParser()
     
@@ -167,3 +178,31 @@ class ProofGenerator:
             
         except Exception as e:
             raise ProofGenerationError(f"Proof sketch generation failed: {str(e)}") from e
+    
+    # Backward compatibility methods for tests
+    def generate_initial_proof(self, circuit_ast, properties: List[str], **kwargs) -> str:
+        """Generate initial proof for circuit AST and properties."""
+        if self.provider and hasattr(self.provider, 'generate_proof'):
+            # Use provider directly for backward compatibility
+            prompt = self.construct_prompt("circuit", str(circuit_ast), properties)
+            return self.provider.generate_proof(prompt, **kwargs)
+        else:
+            # Convert AST to formal spec (simplified for testing)
+            formal_spec = f"Circuit: {circuit_ast}"
+            verification_goals = "; ".join(properties)
+            
+            return self.generate_proof(
+                formal_spec=formal_spec,
+                verification_goals=verification_goals,
+                properties=properties,
+                **kwargs
+            )
+    
+    def construct_prompt(self, circuit_type: str, circuit_code: str, properties: List[str]) -> str:
+        """Construct prompt for proof generation."""
+        return self.prompt_manager.create_proof_prompt(
+            formal_spec=circuit_code,
+            verification_goals=f"Verify {circuit_type} circuit",
+            properties=properties,
+            prover="isabelle"
+        )

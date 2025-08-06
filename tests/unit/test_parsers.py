@@ -5,6 +5,15 @@ from formal_circuits_gpt.parsers import VerilogParser, VHDLParser
 from formal_circuits_gpt.parsers.ast_nodes import CircuitAST, Module, Port, Signal, SignalType
 from formal_circuits_gpt.parsers.verilog_parser import VerilogParseError
 from formal_circuits_gpt.parsers.vhdl_parser import VHDLParseError
+from tests.fixtures.circuits import SIMPLE_FIXTURES, BUGGY_FIXTURES
+
+
+class ParseError(Exception):
+    """Generic parse error for testing."""
+    def __init__(self, message, line_number=None, column=None):
+        super().__init__(message)
+        self.line_number = line_number
+        self.column = column
 
 
 class TestVerilogParser:
@@ -27,7 +36,7 @@ class TestVerilogParser:
             result = parser.parse(fixture.verilog_code)
             # If implemented, result should not be None
             if result is not None:
-                assert hasattr(result, 'modules') or hasattr(result, 'top_module')
+                assert hasattr(result, 'modules') and len(result.modules) > 0
         except NotImplementedError:
             # Expected if parser is not yet implemented
             pytest.skip("VerilogParser.parse not implemented yet")
@@ -85,7 +94,7 @@ class TestVHDLParser:
             result = parser.parse(fixture.vhdl_code)
             # If implemented, result should not be None
             if result is not None:
-                assert hasattr(result, 'entities') or hasattr(result, 'top_entity')
+                assert hasattr(result, 'modules') and len(result.modules) > 0
         except NotImplementedError:
             pytest.skip("VHDLParser.parse not implemented yet")
 

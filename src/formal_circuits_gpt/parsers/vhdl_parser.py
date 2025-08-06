@@ -27,7 +27,7 @@ class VHDLParser:
             re.MULTILINE | re.DOTALL | re.IGNORECASE
         )
         self.port_pattern = re.compile(
-            r'(\w+)\s*:\s*(in|out|inout)\s+(\w+)(?:\((\d+)\s+downto\s+(\d+)\))?',
+            r'(\w+)\s*:\s*(in|out|inout)\s+([\w_]+)(?:\s*\(\s*(\d+)\s+downto\s+(\d+)\s*\))?\s*(?:;|$)',
             re.MULTILINE | re.IGNORECASE
         )
         self.signal_pattern = re.compile(
@@ -119,6 +119,25 @@ class VHDLParser:
             # Convert processes to always blocks
             always_blocks = [self._process_to_always_block(p) for p in processes]
             
+            # Add implicit signals for ports that are assigned to (VHDL allows direct port assignment)
+            port_names = {p.name for p in ports}
+            assigned_targets = {a.target for a in assignments}
+            
+            # For any assignment target that is a port but not in signals, 
+            # the port itself acts as the signal
+            for target in assigned_targets:
+                if target in port_names and target not in {s.name for s in signals}:
+                    # Find the port to get its type info
+                    port = next(p for p in ports if p.name == target)
+                    # Convert port to signal for consistency
+                    signal = Signal(
+                        name=target,
+                        signal_type=SignalType.WIRE if port.signal_type == SignalType.OUTPUT else SignalType.WIRE,
+                        width=port.width,
+                        initial_value=None
+                    )
+                    signals.append(signal)
+            
             module = Module(
                 name=entity_name,
                 ports=ports,
@@ -137,12 +156,32 @@ class VHDLParser:
         """Parse entity port declarations."""
         ports = []
         
-        # Find port clause
-        port_match = re.search(r'port\s*\((.*?)\)\s*;', entity_body, re.DOTALL | re.IGNORECASE)
-        if not port_match:
+        # Find port clause - handle nested parentheses properly
+        port_start = entity_body.find('port')
+        if port_start == -1:
             return ports
         
-        port_declarations = port_match.group(1)
+        # Find the opening parenthesis after 'port'
+        paren_start = entity_body.find('(', port_start)
+        if paren_start == -1:
+            return ports
+        
+        # Find matching closing parenthesis (handle nested parens)
+        paren_count = 0
+        paren_end = -1
+        for i, char in enumerate(entity_body[paren_start:], paren_start):
+            if char == '(':
+                paren_count += 1
+            elif char == ')':
+                paren_count -= 1
+                if paren_count == 0:
+                    paren_end = i
+                    break
+        
+        if paren_end == -1:
+            return ports
+        
+        port_declarations = entity_body[paren_start + 1:paren_end]
         
         # Parse individual port declarations
         for match in self.port_pattern.finditer(port_declarations):

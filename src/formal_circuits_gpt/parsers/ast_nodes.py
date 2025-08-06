@@ -191,11 +191,8 @@ class CircuitAST:
             # Check for undefined signals in assignments
             all_signals = {p.name for p in module.ports} | {s.name for s in module.signals}
             for assignment in module.assignments:
+                # Assignment targets should be either output ports or internal signals/wires
                 if assignment.target not in all_signals:
-                    # Check if it's an output port (outputs can be assigned to)
-                    is_output = any(p.name == assignment.target and p.signal_type == SignalType.OUTPUT 
-                                  for p in module.ports)
-                    if not is_output:
-                        errors.append(f"Module {module.name}: Undefined signal '{assignment.target}'")
+                    errors.append(f"Module {module.name}: Undefined signal '{assignment.target}'")
         
         return errors
