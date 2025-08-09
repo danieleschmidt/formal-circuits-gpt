@@ -106,52 +106,70 @@ Please provide the corrected proof addressing all the errors above:"""
         return total_cost
     
     async def generate(self, prompt: str, **kwargs) -> LLMResponse:
-        """Generate response using OpenAI API."""
-        try:
-            temperature = kwargs.get("temperature", 0.1)
-            max_tokens = kwargs.get("max_tokens", 2000)
-            
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            
-            return LLMResponse(
-                content=response.choices[0].message.content,
-                tokens_used=response.usage.total_tokens,
-                model=self.model,
-                finish_reason=response.choices[0].finish_reason,
-                metadata={"provider": "openai"}
-            )
-            
-        except Exception as e:
-            raise LLMError(f"OpenAI API error: {str(e)}") from e
+        """Generate response using OpenAI API with retry logic."""
+        import time
+        max_retries = kwargs.get('max_retries', 3)
+        retry_delay = kwargs.get('retry_delay', 1.0)
+        
+        for attempt in range(max_retries):
+            try:
+                temperature = kwargs.get("temperature", 0.1)
+                max_tokens = kwargs.get("max_tokens", 2000)
+                timeout = kwargs.get("timeout", 60)
+                
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=timeout
+                )
+                
+                return LLMResponse(
+                    content=response.choices[0].message.content or "",
+                    tokens_used=response.usage.total_tokens if response.usage else 0,
+                    model=self.model,
+                    finish_reason=response.choices[0].finish_reason,
+                    metadata={"provider": "openai", "attempt": attempt + 1}
+                )
+                
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise LLMError(f"OpenAI API error after {max_retries} attempts: {str(e)}", "openai", self.model) from e
+                await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
     
     def generate_sync(self, prompt: str, **kwargs) -> LLMResponse:
-        """Synchronous generation using OpenAI API."""
-        try:
-            temperature = kwargs.get("temperature", 0.1)
-            max_tokens = kwargs.get("max_tokens", 2000)
-            
-            response = self.sync_client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            
-            return LLMResponse(
-                content=response.choices[0].message.content,
-                tokens_used=response.usage.total_tokens,
-                model=self.model,
-                finish_reason=response.choices[0].finish_reason,
-                metadata={"provider": "openai"}
-            )
-            
-        except Exception as e:
-            raise LLMError(f"OpenAI API error: {str(e)}") from e
+        """Synchronous generation using OpenAI API with retry logic."""
+        import time
+        max_retries = kwargs.get('max_retries', 3)
+        retry_delay = kwargs.get('retry_delay', 1.0)
+        
+        for attempt in range(max_retries):
+            try:
+                temperature = kwargs.get("temperature", 0.1)
+                max_tokens = kwargs.get("max_tokens", 2000)
+                timeout = kwargs.get("timeout", 60)
+                
+                response = self.sync_client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=timeout
+                )
+                
+                return LLMResponse(
+                    content=response.choices[0].message.content or "",
+                    tokens_used=response.usage.total_tokens if response.usage else 0,
+                    model=self.model,
+                    finish_reason=response.choices[0].finish_reason,
+                    metadata={"provider": "openai", "attempt": attempt + 1}
+                )
+                
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise LLMError(f"OpenAI API error after {max_retries} attempts: {str(e)}", "openai", self.model) from e
+                time.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
 
 
 class AnthropicClient(LLMClient):
@@ -209,30 +227,42 @@ Please provide the corrected proof addressing all the errors above:"""
         return total_cost
     
     async def generate(self, prompt: str, **kwargs) -> LLMResponse:
-        """Generate response using Anthropic API."""
-        try:
-            temperature = kwargs.get("temperature", 0.1)
-            max_tokens = kwargs.get("max_tokens", 2000)
-            
-            response = await self.client.messages.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            
-            content = response.content[0].text if response.content else ""
-            
-            return LLMResponse(
-                content=content,
-                tokens_used=response.usage.input_tokens + response.usage.output_tokens,
-                model=self.model,
-                finish_reason=response.stop_reason,
-                metadata={"provider": "anthropic"}
-            )
-            
-        except Exception as e:
-            raise LLMError(f"Anthropic API error: {str(e)}") from e
+        """Generate response using Anthropic API with retry logic."""
+        import time
+        max_retries = kwargs.get('max_retries', 3)
+        retry_delay = kwargs.get('retry_delay', 1.0)
+        
+        for attempt in range(max_retries):
+            try:
+                temperature = kwargs.get("temperature", 0.1)
+                max_tokens = kwargs.get("max_tokens", 2000)
+                timeout = kwargs.get("timeout", 60)
+                
+                response = await self.client.messages.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=timeout
+                )
+                
+                content = response.content[0].text if response.content else ""
+                tokens_used = 0
+                if hasattr(response, 'usage') and response.usage:
+                    tokens_used = response.usage.input_tokens + response.usage.output_tokens
+                
+                return LLMResponse(
+                    content=content,
+                    tokens_used=tokens_used,
+                    model=self.model,
+                    finish_reason=response.stop_reason,
+                    metadata={"provider": "anthropic", "attempt": attempt + 1}
+                )
+                
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise LLMError(f"Anthropic API error after {max_retries} attempts: {str(e)}", "anthropic", self.model) from e
+                await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
     
     def generate_sync(self, prompt: str, **kwargs) -> LLMResponse:
         """Synchronous generation using Anthropic API."""

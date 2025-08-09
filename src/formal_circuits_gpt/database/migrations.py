@@ -2,7 +2,7 @@
 
 import os
 import sqlite3
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 from .connection import DatabaseManager
 
