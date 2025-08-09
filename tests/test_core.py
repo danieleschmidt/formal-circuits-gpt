@@ -44,6 +44,7 @@ class TestCircuitVerifier:
         """Test basic verification success flow."""
         # Setup mocks
         mock_ast = Mock(spec=CircuitAST)
+        mock_ast.modules = []  # Add modules attribute
         mock_parse.return_value = mock_ast
         
         mock_generate.return_value = "proof code"
@@ -53,13 +54,14 @@ class TestCircuitVerifier:
         mock_result.errors = []
         mock_verify.return_value = mock_result
         
-        # Mock property generator
-        with patch.object(CircuitVerifier, 'property_generator') as mock_prop_gen:
+        verifier = CircuitVerifier()
+        
+        # Mock the property generator instance
+        with patch.object(verifier, 'property_generator') as mock_prop_gen:
             mock_prop_gen.generate_properties.return_value = [
                 Mock(formula="sum == a + b")
             ]
             
-            verifier = CircuitVerifier()
             result = verifier.verify("module test(); endmodule")
             
             assert result.status == "VERIFIED"
@@ -72,7 +74,7 @@ class TestCircuitVerifier:
         mock_parse.side_effect = Exception("Parse error")
         
         verifier = CircuitVerifier()
-        with pytest.raises(VerificationError, match="Verification failed: Parse error"):
+        with pytest.raises(VerificationError, match="Failed to parse HDL code: Parse error"):
             verifier.verify("invalid hdl")
 
     def test_verify_file_not_exists(self):

@@ -16,6 +16,9 @@ from .provers.mock_prover import MockProver
 from .security import InputValidator, ValidationResult, SecurityError
 from .monitoring.logger import get_logger
 from .monitoring.health_checker import HealthChecker
+from .reliability.circuit_breaker import circuit_breaker_manager
+from .reliability.retry_policy import ExponentialBackoff, RetryableOperation
+from .reliability.rate_limiter import rate_limiter_manager
 
 
 class CircuitVerifier:
@@ -72,13 +75,40 @@ class CircuitVerifier:
             # Initialize prover interfaces (will be created when needed)
             self._prover_interface = None
             
+            # Initialize reliability components
+            self.llm_circuit_breaker = circuit_breaker_manager.get_breaker(
+                name=f"llm_{model}",
+                failure_threshold=5,
+                timeout=120.0
+            )
+            self.prover_circuit_breaker = circuit_breaker_manager.get_breaker(
+                name=f"prover_{prover}",
+                failure_threshold=3,
+                timeout=60.0
+            )
+            
+            # Initialize rate limiters for API calls
+            self.llm_rate_limiter = rate_limiter_manager.create_token_bucket(
+                name=f"llm_{model}",
+                capacity=60,  # 60 requests
+                refill_rate=1.0  # 1 per second
+            )
+            
+            # Initialize retry policy
+            self.retry_policy = ExponentialBackoff(
+                max_attempts=3,
+                base_delay=1.0,
+                max_delay=30.0
+            )
+            self.retry_operation = RetryableOperation(self.retry_policy)
+            
             # Log initialization
             self.logger.set_context(
                 session_id=self.session_id,
                 prover=prover,
                 model=model
             )
-            self.logger.info("CircuitVerifier initialized successfully")
+            self.logger.info("CircuitVerifier initialized successfully with reliability patterns")
             
         except Exception as e:
             self.logger.error(f"Failed to initialize CircuitVerifier: {str(e)}")
@@ -344,16 +374,25 @@ class CircuitVerifier:
             return self.verilog_parser.parse(hdl_code)
     
     def _generate_proof_with_llm(self, formal_spec: str, verification_goals: str, properties: List[str]) -> str:
-        """Generate proof using LLM."""
+        """Generate proof using LLM with reliability patterns."""
         prompt = self._create_proof_generation_prompt(formal_spec, verification_goals, properties)
         
-        try:
+        def _llm_call():
+            # Rate limit the API call
+            if not self.llm_rate_limiter.wait_for_token(1, timeout=30):
+                raise VerificationError("Rate limit exceeded for LLM API calls")
+            
             response = self.llm_manager.generate_sync(
                 prompt,
                 temperature=self.temperature,
-                max_tokens=3000
+                max_tokens=3000,
+                max_retries=1  # Let our circuit breaker handle retries
             )
             return response.content
+        
+        try:
+            # Use circuit breaker for LLM calls
+            return self.llm_circuit_breaker.call(_llm_call)
         except Exception as e:
             raise VerificationError(f"LLM proof generation failed: {str(e)}") from e
     
@@ -386,7 +425,7 @@ Please provide the complete proof code:"""
         return prompt
     
     def _verify_with_prover(self, proof_content: str) -> "ProverResult":
-        """Verify proof with theorem prover."""
+        """Verify proof with theorem prover using reliability patterns."""
         if not self._prover_interface:
             if self.prover == "isabelle":
                 isabelle = IsabelleInterface()
@@ -403,7 +442,15 @@ Please provide the complete proof code:"""
                     self.logger.warning("Coq not installed, using mock prover for testing")
                     self._prover_interface = MockProver()
         
-        return self._prover_interface.verify_proof(proof_content)
+        def _prover_call():
+            return self._prover_interface.verify_proof(proof_content)
+        
+        try:
+            # Use circuit breaker and retry for prover calls
+            return self.prover_circuit_breaker.call(_prover_call)
+        except Exception as e:
+            self.logger.error(f"Prover verification failed: {str(e)}")
+            raise
     
     def _refine_proof(self, proof_content: str, errors: List[str]) -> str:
         """Refine proof based on errors."""
