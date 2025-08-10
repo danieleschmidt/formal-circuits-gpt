@@ -1,0 +1,302 @@
+# Production Docker Compose for formal-circuits-gpt
+# Multi-service architecture with monitoring, caching, and scaling
+
+version: '3.8'
+
+services:
+  # Main Application
+  app:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.production
+    image: formal-circuits-gpt:latest
+    restart: unless-stopped
+    environment:
+      - FORMAL_CIRCUITS_GPT_ENV=production
+      - FORMAL_CIRCUITS_GPT_LOG_LEVEL=INFO
+      - FORMAL_CIRCUITS_GPT_DATABASE_URL=postgresql://fcgpt:${DB_PASSWORD}@db:5432/formal_circuits_gpt
+      - FORMAL_CIRCUITS_GPT_REDIS_URL=redis://redis:6379/0
+      - FORMAL_CIRCUITS_GPT_SECRET_KEY=${SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - app_data:/data
+      - app_logs:/logs
+    networks:
+      - app_network
+    depends_on:
+      - db
+      - redis
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Load Balancer / Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - app_network
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=formal_circuits_gpt
+      - POSTGRES_USER=fcgpt
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--auth-host=md5
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fcgpt -d formal_circuits_gpt"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Worker Nodes for Distributed Processing
+  worker:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.production
+    image: formal-circuits-gpt:latest
+    restart: unless-stopped
+    command: ["python", "-m", "src.formal_circuits_gpt.concurrent.distributed_verifier", "--role", "worker", "--coordinator-url", "http://app:8000"]
+    environment:
+      - FORMAL_CIRCUITS_GPT_ENV=production
+      - FORMAL_CIRCUITS_GPT_LOG_LEVEL=INFO
+      - FORMAL_CIRCUITS_GPT_REDIS_URL=redis://redis:6379/0
+    volumes:
+      - worker_data:/data
+      - worker_logs:/logs
+    networks:
+      - app_network
+    depends_on:
+      - app
+      - redis
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - app_network
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - app_network
+      - monitoring
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Log Management - ELK Stack (Elasticsearch)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    restart: unless-stopped
+    environment:
+      - node.name=es01
+      - cluster.name=formal-circuits-gpt-logs
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - logging
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Log Management - Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.0
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
+    networks:
+      - logging
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Log Shipping - Filebeat
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.10.0
+    restart: unless-stopped
+    user: root
+    command: filebeat -e -strict.perms=false
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - app_logs:/logs/app:ro
+      - worker_logs:/logs/worker:ro
+      - nginx_logs:/logs/nginx:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - logging
+    depends_on:
+      - elasticsearch
+
+  # Cache Server (Dedicated)
+  cache_server:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.production
+    image: formal-circuits-gpt:latest
+    restart: unless-stopped
+    command: ["python", "-m", "src.formal_circuits_gpt.concurrent.distributed_verifier", "--role", "cache_server", "--port", "8002"]
+    environment:
+      - FORMAL_CIRCUITS_GPT_ENV=production
+      - FORMAL_CIRCUITS_GPT_LOG_LEVEL=INFO
+      - FORMAL_CIRCUITS_GPT_REDIS_URL=redis://redis:6379/1
+    volumes:
+      - cache_data:/data
+      - cache_logs:/logs
+    networks:
+      - app_network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  worker_data:
+    driver: local
+  worker_logs:
+    driver: local
+  cache_data:
+    driver: local
+  cache_logs:
+    driver: local
+  nginx_logs:
+    driver: local
+  db_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  es_data:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge
+  monitoring:
+    driver: bridge
+  logging:
+    driver: bridge

@@ -1,0 +1,86 @@
+# Production Dockerfile for formal-circuits-gpt
+# Multi-stage build for optimized production deployment
+
+# Build stage
+FROM python:3.11-slim as builder
+
+# Install system dependencies for building
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    libssl-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml README.md ./
+COPY src/ src/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir -e .
+
+# Production stage
+FROM python:3.11-slim as production
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    gnupg \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install theorem provers
+# Isabelle/HOL
+RUN curl -L https://isabelle.in.tum.de/dist/Isabelle2023_linux.tar.gz | tar -xz -C /opt/
+RUN ln -s /opt/Isabelle2023/bin/isabelle /usr/local/bin/isabelle
+
+# Coq
+RUN apt-get update && apt-get install -y coq && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN mkdir -p /app /data /logs && chown -R appuser:appuser /app /data /logs
+
+# Set working directory
+WORKDIR /app
+
+# Copy application from builder stage
+COPY --from=builder --chown=appuser:appuser /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder --chown=appuser:appuser /usr/local/bin /usr/local/bin
+COPY --chown=appuser:appuser src/ src/
+COPY --chown=appuser:appuser pyproject.toml README.md ./
+
+# Install production dependencies
+RUN pip install --no-cache-dir gunicorn uvicorn[standard] prometheus-client
+
+# Switch to non-root user
+USER appuser
+
+# Environment variables
+ENV PYTHONPATH=/app
+ENV FORMAL_CIRCUITS_GPT_ENV=production
+ENV FORMAL_CIRCUITS_GPT_LOG_LEVEL=INFO
+ENV FORMAL_CIRCUITS_GPT_DATA_DIR=/data
+ENV FORMAL_CIRCUITS_GPT_LOG_DIR=/logs
+ENV FORMAL_CIRCUITS_GPT_CACHE_DIR=/data/cache
+ENV FORMAL_CIRCUITS_GPT_MAX_WORKERS=4
+ENV FORMAL_CIRCUITS_GPT_TIMEOUT=3600
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Volume for persistent data
+VOLUME ["/data", "/logs"]
+
+# Start command
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--access-logfile", "/logs/access.log", "--error-logfile", "/logs/error.log", "--log-level", "info", "src.formal_circuits_gpt.api.app:app"]
