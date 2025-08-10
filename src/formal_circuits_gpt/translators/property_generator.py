@@ -33,17 +33,64 @@ class PropertyGenerator:
     """Generates correctness properties from circuit structure."""
     
     def __init__(self):
-        """Initialize the property generator."""
-        self.arithmetic_patterns = {
-            'adder': ['add', 'sum', 'plus'],
-            'multiplier': ['mul', 'mult', 'product'],
-            'subtractor': ['sub', 'minus', 'diff'],
-            'comparator': ['cmp', 'compare', 'equal', 'less', 'greater'],
-            'counter': ['count', 'counter', 'increment'],
-            'decoder': ['decode', 'decoder'],
-            'encoder': ['encode', 'encoder'],
-            'mux': ['mux', 'select', 'multiplex'],
-            'demux': ['demux', 'demultiplex']
+        """Initialize the property generator with enhanced pattern recognition."""
+        # Component type patterns for intelligent property inference
+        self.component_patterns = {
+            'adder': {
+                'keywords': ['add', 'sum', 'plus', 'carry'],
+                'signals': ['sum', 'cout', 'carry_out'],
+                'properties': ['commutativity', 'associativity', 'overflow_detection']
+            },
+            'multiplier': {
+                'keywords': ['mul', 'mult', 'product', 'multiply'],
+                'signals': ['product', 'result'],
+                'properties': ['commutativity', 'distributivity', 'zero_property']
+            },
+            'counter': {
+                'keywords': ['count', 'counter', 'increment', 'decrement'],
+                'signals': ['count', 'overflow', 'underflow'],
+                'properties': ['increment_behavior', 'reset_behavior', 'overflow_wrap']
+            },
+            'fsm': {
+                'keywords': ['state', 'next_state', 'current_state'],
+                'signals': ['state', 'next_state'],
+                'properties': ['reachability', 'deadlock_freedom', 'determinism']
+            },
+            'mux': {
+                'keywords': ['mux', 'select', 'multiplex', 'switch'],
+                'signals': ['sel', 'select', 'out'],
+                'properties': ['selection_correctness', 'all_inputs_reachable']
+            },
+            'memory': {
+                'keywords': ['mem', 'memory', 'ram', 'rom', 'storage'],
+                'signals': ['addr', 'data', 'we', 'oe'],
+                'properties': ['read_after_write', 'data_integrity', 'address_decode']
+            },
+            'fifo': {
+                'keywords': ['fifo', 'queue', 'buffer'],
+                'signals': ['empty', 'full', 'push', 'pop'],
+                'properties': ['fifo_order', 'empty_full_mutual_exclusion', 'capacity_limits']
+            }
+        }
+        
+        # Advanced property templates
+        self.property_templates = {
+            'temporal': {
+                'always': 'G({condition})',
+                'eventually': 'F({condition})',
+                'until': '{condition1} U {condition2}',
+                'next': 'X({condition})'
+            },
+            'functional': {
+                'equality': '{output} = {expression}',
+                'implication': '{condition} → {result}',
+                'equivalence': '{expr1} ↔ {expr2}'
+            },
+            'bounds': {
+                'range': '{min} ≤ {signal} ≤ {max}',
+                'positive': '{signal} ≥ 0',
+                'overflow': '{signal} < 2^{width}'
+            }
         }
     
     def generate_properties(self, ast: CircuitAST, 
@@ -73,12 +120,220 @@ class PropertyGenerator:
         
         return properties
     
-    def generate_module_properties(self, module: Module, 
-                                 include_types: List[PropertyType]) -> List[PropertySpec]:
-        """Generate properties for a single module."""
+    def infer_component_type(self, module: Module) -> Optional[str]:
+        """Intelligently infer component type from module structure and naming."""
+        module_name = module.name.lower()
+        
+        # Direct name matching
+        for comp_type, patterns in self.component_patterns.items():
+            if any(keyword in module_name for keyword in patterns['keywords']):
+                return comp_type
+        
+        # Signal pattern matching
+        signal_names = [sig.name.lower() for sig in module.signals]
+        port_names = [port.name.lower() for port in module.ports]
+        all_names = signal_names + port_names
+        
+        component_scores = {}
+        for comp_type, patterns in self.component_patterns.items():
+            score = 0
+            for signal_pattern in patterns['signals']:
+                if any(signal_pattern in name for name in all_names):
+                    score += 2
+            for keyword in patterns['keywords']:
+                if any(keyword in name for name in all_names):
+                    score += 1
+            if score > 0:
+                component_scores[comp_type] = score
+        
+        # Return highest scoring component type
+        if component_scores:
+            return max(component_scores.items(), key=lambda x: x[1])[0]
+        
+        return None
+    
+    def generate_component_specific_properties(self, module: Module, component_type: str) -> List[PropertySpec]:
+        """Generate properties specific to the identified component type."""
         properties = []
         
-        # Functional properties
+        if component_type == 'adder':
+            properties.extend(self._generate_adder_properties(module))
+        elif component_type == 'counter':
+            properties.extend(self._generate_counter_properties(module))
+        elif component_type == 'fsm':
+            properties.extend(self._generate_fsm_properties(module))
+        elif component_type == 'mux':
+            properties.extend(self._generate_mux_properties(module))
+        elif component_type == 'memory':
+            properties.extend(self._generate_memory_properties(module))
+        
+        return properties
+    
+    def _generate_adder_properties(self, module: Module) -> List[PropertySpec]:
+        """Generate adder-specific properties."""
+        properties = []
+        
+        # Find adder inputs and outputs
+        from ..parsers.ast_nodes import SignalType
+        inputs = [p for p in module.ports if p.signal_type == SignalType.INPUT]
+        outputs = [p for p in module.ports if p.signal_type == SignalType.OUTPUT]
+        
+        if len(inputs) >= 2 and len(outputs) >= 1:
+            input_a = inputs[0].name
+            input_b = inputs[1].name if len(inputs) > 1 else inputs[0].name
+            output_sum = outputs[0].name
+            
+            # Commutativity
+            properties.append(PropertySpec(
+                name="adder_commutativity",
+                formula=f"∀ {input_a} {input_b}. {module.name}({input_a}, {input_b}) = {module.name}({input_b}, {input_a})",
+                property_type=PropertyType.FUNCTIONAL,
+                description="Addition is commutative",
+                proof_strategy="simp"
+            ))
+            
+            # Zero identity
+            properties.append(PropertySpec(
+                name="adder_zero_identity", 
+                formula=f"∀ {input_a}. {module.name}({input_a}, 0) = {input_a}",
+                property_type=PropertyType.FUNCTIONAL,
+                description="Adding zero preserves the value"
+            ))
+            
+            # Overflow bounds
+            if hasattr(outputs[0], 'width') and outputs[0].width:
+                width = outputs[0].width
+                properties.append(PropertySpec(
+                    name="adder_overflow_bounds",
+                    formula=f"∀ inputs. {output_sum} < 2^{width}",
+                    property_type=PropertyType.SAFETY,
+                    description="Sum stays within output bit width bounds"
+                ))
+        
+        return properties
+    
+    def _generate_counter_properties(self, module: Module) -> List[PropertySpec]:
+        """Generate counter-specific properties.""" 
+        properties = []
+        
+        # Find counter signals
+        count_signal = next((p.name for p in module.ports if 'count' in p.name.lower()), None)
+        reset_signal = next((p.name for p in module.ports if 'reset' in p.name.lower()), None)
+        enable_signal = next((p.name for p in module.ports if 'enable' in p.name.lower()), None)
+        
+        if count_signal:
+            # Reset property
+            if reset_signal:
+                properties.append(PropertySpec(
+                    name="counter_reset",
+                    formula=f"{reset_signal} → ◯({count_signal} = 0)",
+                    property_type=PropertyType.SAFETY,
+                    description="Counter resets to zero"
+                ))
+            
+            # Increment property
+            if enable_signal:
+                properties.append(PropertySpec(
+                    name="counter_increment", 
+                    formula=f"{enable_signal} ∧ ¬{reset_signal or 'reset'} → ◯({count_signal} = {count_signal} + 1)",
+                    property_type=PropertyType.FUNCTIONAL,
+                    description="Counter increments when enabled"
+                ))
+            
+            # Overflow wrap-around
+            count_port = next((p for p in module.ports if p.name == count_signal), None)
+            if count_port and hasattr(count_port, 'width') and count_port.width:
+                max_val = 2**count_port.width - 1
+                properties.append(PropertySpec(
+                    name="counter_overflow_wrap",
+                    formula=f"({count_signal} = {max_val}) ∧ {enable_signal or 'enable'} → ◯({count_signal} = 0)", 
+                    property_type=PropertyType.FUNCTIONAL,
+                    description="Counter wraps to zero at maximum value"
+                ))
+        
+        return properties
+    
+    def _generate_fsm_properties(self, module: Module) -> List[PropertySpec]:
+        """Generate FSM-specific properties."""
+        properties = []
+        
+        # Find state signals
+        state_signals = [p.name for p in module.ports + module.signals if 'state' in p.name.lower()]
+        
+        if state_signals:
+            state_sig = state_signals[0]
+            
+            # Determinism
+            properties.append(PropertySpec(
+                name="fsm_determinism",
+                formula=f"∀ inputs state. ∃! next_state. transition(state, inputs) = next_state",
+                property_type=PropertyType.SAFETY,
+                description="FSM transitions are deterministic"
+            ))
+            
+            # Reachability (all states reachable)
+            properties.append(PropertySpec(
+                name="fsm_reachability",
+                formula=f"∀ state. ◇({state_sig} = state)",
+                property_type=PropertyType.LIVENESS,
+                description="All states are reachable"
+            ))
+        
+        return properties
+    
+    def _generate_mux_properties(self, module: Module) -> List[PropertySpec]:
+        """Generate multiplexer-specific properties."""
+        properties = []
+        
+        # Find selection and data signals
+        from ..parsers.ast_nodes import SignalType
+        sel_signal = next((p.name for p in module.ports if 'sel' in p.name.lower()), None)
+        data_inputs = [p.name for p in module.ports if p.name.startswith('data') or p.name.startswith('in')]
+        output_signal = next((p.name for p in module.ports if p.signal_type == SignalType.OUTPUT), None)
+        
+        if sel_signal and data_inputs and output_signal:
+            # Selection correctness
+            for i, data_input in enumerate(data_inputs):
+                properties.append(PropertySpec(
+                    name=f"mux_select_{i}",
+                    formula=f"{sel_signal} = {i} → {output_signal} = {data_input}",
+                    property_type=PropertyType.FUNCTIONAL,
+                    description=f"Correct selection of input {i}"
+                ))
+        
+        return properties
+    
+    def _generate_memory_properties(self, module: Module) -> List[PropertySpec]:
+        """Generate memory-specific properties."""
+        properties = []
+        
+        # Find memory control signals
+        addr_sig = next((p.name for p in module.ports if 'addr' in p.name.lower()), None)
+        data_sig = next((p.name for p in module.ports if 'data' in p.name.lower()), None)
+        we_sig = next((p.name for p in module.ports if 'we' in p.name.lower() or 'write' in p.name.lower()), None)
+        
+        if addr_sig and data_sig and we_sig:
+            # Read-after-write consistency
+            properties.append(PropertySpec(
+                name="memory_read_after_write",
+                formula=f"{we_sig} ∧ ({addr_sig} = addr) → ◯(read({addr_sig}) = {data_sig})",
+                property_type=PropertyType.FUNCTIONAL,
+                description="Read after write returns written value"
+            ))
+        
+        return properties
+    
+    def generate_module_properties(self, module: Module, 
+                                 include_types: List[PropertyType]) -> List[PropertySpec]:
+        """Generate properties for a single module with intelligent inference."""
+        properties = []
+        
+        # First, try to infer component type for specialized properties
+        component_type = self.infer_component_type(module)
+        if component_type:
+            properties.extend(self.generate_component_specific_properties(module, component_type))
+        
+        # General functional properties
         if PropertyType.FUNCTIONAL in include_types:
             properties.extend(self._generate_functional_properties(module))
         
@@ -354,8 +609,8 @@ class PropertyGenerator:
         """Classify module type based on name and structure."""
         name_lower = module.name.lower()
         
-        for module_type, patterns in self.arithmetic_patterns.items():
-            if any(pattern in name_lower for pattern in patterns):
+        for module_type, pattern_dict in self.component_patterns.items():
+            if any(pattern in name_lower for pattern in pattern_dict['keywords']):
                 return module_type
         
         # Classify by port structure

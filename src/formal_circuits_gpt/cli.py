@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import time
 import tempfile
 from pathlib import Path
 from typing import Optional, List
@@ -259,6 +260,65 @@ def serve(port, host, debug):
         sys.exit(1)
     except Exception as e:
         console.print(f"[red]✗ Failed to start server:[/red] {e}")
+        sys.exit(1)
+
+
+@main.command()
+@click.option("--config", type=click.Path(exists=True), help="Experiment configuration file")
+@click.option("--circuits", type=click.Path(exists=True), multiple=True, help="Circuit files to test")
+@click.option("--provers", multiple=True, default=["isabelle"], help="Provers to compare")
+@click.option("--models", multiple=True, default=["gpt-4-turbo"], help="LLM models to test")
+@click.option("--repetitions", default=3, type=int, help="Repetitions for statistical significance")
+@click.option("--timeout", default=300, type=int, help="Timeout per verification")
+@click.option("--output-dir", type=click.Path(), help="Output directory for results")
+def research(config, circuits, provers, models, repetitions, timeout, output_dir):
+    """Run research experiments and comparative studies."""
+    try:
+        from .research.experiment_runner import ExperimentRunner, ExperimentConfig
+        from pathlib import Path
+        
+        if config:
+            # Load experiment from config file
+            import json
+            with open(config) as f:
+                config_data = json.load(f)
+            exp_config = ExperimentConfig(**config_data)
+        else:
+            # Create config from CLI parameters
+            if not circuits:
+                console.print("[red]✗ No circuits specified. Use --circuits or --config[/red]")
+                sys.exit(1)
+            
+            exp_config = ExperimentConfig(
+                name=f"cli_experiment_{int(time.time())}",
+                description="CLI-generated experiment",
+                circuits=list(circuits),
+                provers=list(provers),
+                models=list(models),
+                repetitions=repetitions,
+                timeout=timeout
+            )
+        
+        # Set up results directory
+        results_dir = Path(output_dir) if output_dir else Path("research_results")
+        runner = ExperimentRunner(results_dir)
+        
+        # Run experiment
+        console.print(f"[blue]🔬 Starting research experiment: {exp_config.name}[/blue]")
+        results = runner.run_experiment(exp_config)
+        
+        # Display summary
+        stats = runner._calculate_statistics(results)
+        console.print(f"[green]✅ Experiment completed![/green]")
+        console.print(f"Success rate: {stats['overall']['success_rate']:.1%}")
+        console.print(f"Average duration: {stats['overall']['avg_duration_ms']:.1f}ms")
+        console.print(f"Results saved to: {results_dir}")
+        
+    except ImportError as e:
+        console.print(f"[red]✗ Research modules not available: {e}[/red]")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]✗ Research experiment failed: {e}[/red]")
         sys.exit(1)
 
 
