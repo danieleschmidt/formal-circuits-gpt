@@ -1,0 +1,71 @@
+{
+  "benchmark_suite": "formal-circuits-gpt-examples",
+  "version": "1.0.0",
+  "description": "Built-in benchmark circuits for formal verification testing",
+  "circuits": [
+    {
+      "name": "simple_adder",
+      "file": "../examples/simple_adder.v",
+      "type": "combinational",
+      "complexity": "low",
+      "expected_properties": 3,
+      "timeout": 120
+    },
+    {
+      "name": "counter",
+      "file": "../examples/counter.v", 
+      "type": "sequential",
+      "complexity": "medium",
+      "expected_properties": 4,
+      "timeout": 180
+    },
+    {
+      "name": "multiplexer",
+      "file": "../examples/multiplexer.v",
+      "type": "combinational", 
+      "complexity": "low",
+      "expected_properties": 4,
+      "timeout": 120
+    },
+    {
+      "name": "fsm_example",
+      "file": "../examples/fsm_example.vhdl",
+      "type": "sequential",
+      "complexity": "medium", 
+      "expected_properties": 4,
+      "timeout": 240
+    }
+  ],
+  "properties": {
+    "simple_adder": [
+      "sum >= a",
+      "sum >= b", 
+      "sum == (a + b + cin) when no overflow"
+    ],
+    "counter": [
+      "count == 0 after reset",
+      "count increments when enabled",
+      "count unchanged when disabled",
+      "count wraps at 255"
+    ],
+    "multiplexer": [
+      "out == data0 when sel == 00",
+      "out == data1 when sel == 01", 
+      "out == data2 when sel == 10",
+      "out == data3 when sel == 11"
+    ],
+    "fsm_example": [
+      "starts in IDLE after reset",
+      "state transitions are valid",
+      "done only high in FINISH", 
+      "no unreachable states"
+    ]
+  },
+  "test_parameters": {
+    "default_timeout": 180,
+    "max_refinement_rounds": 5,
+    "temperature": 0.1,
+    "supported_provers": ["isabelle", "coq"],
+    "supported_models": ["gpt-4-turbo", "claude-3-sonnet"]
+  }
+}

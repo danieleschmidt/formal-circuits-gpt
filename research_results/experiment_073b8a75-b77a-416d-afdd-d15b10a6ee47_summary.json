@@ -1,0 +1,50 @@
+{
+  "experiment_id": "073b8a75-b77a-416d-afdd-d15b10a6ee47",
+  "config": {
+    "name": "cli_experiment_1754864762",
+    "description": "CLI-generated experiment",
+    "circuits": [
+      "examples/simple_adder.v",
+      "examples/counter.v"
+    ],
+    "provers": [
+      "isabelle"
+    ],
+    "models": [
+      "gpt-4-turbo"
+    ],
+    "properties": null,
+    "timeout": 60,
+    "max_refinement_rounds": 5,
+    "temperature": 0.1,
+    "repetitions": 1
+  },
+  "total_runs": 2,
+  "completion_time": "2025-08-10T22:26:02.499630",
+  "statistics": {
+    "overall": {
+      "total_runs": 2,
+      "verified": 2,
+      "failed": 0,
+      "errors": 0,
+      "success_rate": 1.0,
+      "avg_duration_ms": 6.810426712036133,
+      "total_tokens_used": 0,
+      "avg_tokens_per_run": 0.0
+    },
+    "by_prover": {
+      "isabelle": {
+        "total": 2,
+        "verified": 2,
+        "success_rate": 1.0
+      }
+    },
+    "by_model": {
+      "gpt-4-turbo": {
+        "total": 2,
+        "verified": 2,
+        "success_rate": 1.0
+      }
+    }
+  }
+}

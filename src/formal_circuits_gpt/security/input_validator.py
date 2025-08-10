@@ -318,18 +318,24 @@ class InputValidator:
         return max_depth
     
     def _sanitize_hdl_content(self, content: str) -> str:
-        """Sanitize HDL content."""
-        # Remove or escape dangerous patterns
+        """Sanitize HDL content while preserving structure."""
+        # For HDL content, we need to be more careful to preserve structure
         sanitized = content
         
-        # Remove excessive whitespace
-        sanitized = re.sub(r'\s+', ' ', sanitized)
+        # Only remove potentially dangerous shell commands in comments
+        # Keep the HDL structure intact - be very specific about dangerous patterns
+        dangerous_comment_patterns = [
+            r'//.*(?:\$\([^)]*\)|`[^`]*`|\$\{[^}]*\})',  # Shell command substitution in comments
+            r'/\*.*(?:\$\([^)]*\)|`[^`]*`|\$\{[^}]*\}).*?\*/',  # Shell commands in multiline comments
+        ]
         
-        # Remove comments that might contain injection attempts
-        sanitized = re.sub(r'//.*$', '', sanitized, flags=re.MULTILINE)
-        sanitized = re.sub(r'/\*.*?\*/', '', sanitized, flags=re.DOTALL)
+        for pattern in dangerous_comment_patterns:
+            sanitized = re.sub(pattern, '', sanitized, flags=re.DOTALL | re.MULTILINE)
         
-        return sanitized.strip()
+        # Remove null bytes and other control characters that could cause issues
+        sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', sanitized)
+        
+        return sanitized
     
     def _sanitize_property(self, prop: str) -> str:
         """Sanitize property specification."""
