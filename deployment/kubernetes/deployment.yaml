@@ -1,0 +1,587 @@
+# Kubernetes deployment for formal-circuits-gpt
+# Production-ready with auto-scaling, monitoring, and high availability
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: formal-circuits-gpt
+  labels:
+    name: formal-circuits-gpt
+    environment: production
+
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fcgpt-config
+  namespace: formal-circuits-gpt
+data:
+  FORMAL_CIRCUITS_GPT_ENV: "production"
+  FORMAL_CIRCUITS_GPT_LOG_LEVEL: "INFO"
+  FORMAL_CIRCUITS_GPT_MAX_WORKERS: "4"
+  FORMAL_CIRCUITS_GPT_TIMEOUT: "3600"
+  FORMAL_CIRCUITS_GPT_CACHE_SIZE: "1000"
+  DATABASE_HOST: "postgres-service"
+  REDIS_HOST: "redis-service"
+
+---
+# Secret for sensitive configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fcgpt-secrets
+  namespace: formal-circuits-gpt
+type: Opaque
+data:
+  # Base64 encoded values (replace with actual values)
+  SECRET_KEY: <BASE64_ENCODED_SECRET_KEY>
+  DATABASE_PASSWORD: <BASE64_ENCODED_DB_PASSWORD>
+  OPENAI_API_KEY: <BASE64_ENCODED_OPENAI_KEY>
+  ANTHROPIC_API_KEY: <BASE64_ENCODED_ANTHROPIC_KEY>
+
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: formal-circuits-gpt
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_DB
+          value: formal_circuits_gpt
+        - name: POSTGRES_USER
+          value: fcgpt
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fcgpt-secrets
+              key: DATABASE_PASSWORD
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - fcgpt
+            - -d
+            - formal_circuits_gpt
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - fcgpt
+            - -d
+            - formal_circuits_gpt
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: formal-circuits-gpt
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+
+---
+# PostgreSQL PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: formal-circuits-gpt
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: formal-circuits-gpt
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+        - redis-server
+        - --appendonly
+        - "yes"
+        - --maxmemory
+        - 1gb
+        - --maxmemory-policy
+        - allkeys-lru
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: redis-pvc
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: formal-circuits-gpt
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+
+---
+# Redis PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: formal-circuits-gpt
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+# Main Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fcgpt-app
+  namespace: formal-circuits-gpt
+  labels:
+    app: fcgpt-app
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: fcgpt-app
+  template:
+    metadata:
+      labels:
+        app: fcgpt-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: fcgpt-app
+        image: formal-circuits-gpt:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: FORMAL_CIRCUITS_GPT_DATABASE_URL
+          value: "postgresql://fcgpt:$(DATABASE_PASSWORD)@postgres-service:5432/formal_circuits_gpt"
+        - name: FORMAL_CIRCUITS_GPT_REDIS_URL
+          value: "redis://redis-service:6379/0"
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fcgpt-secrets
+              key: DATABASE_PASSWORD
+        - name: FORMAL_CIRCUITS_GPT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fcgpt-secrets
+              key: SECRET_KEY
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fcgpt-secrets
+              key: OPENAI_API_KEY
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fcgpt-secrets
+              key: ANTHROPIC_API_KEY
+        envFrom:
+        - configMapRef:
+            name: fcgpt-config
+        volumeMounts:
+        - name: app-data
+          mountPath: /data
+        - name: app-logs
+          mountPath: /logs
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: app-data
+        persistentVolumeClaim:
+          claimName: fcgpt-app-pvc
+      - name: app-logs
+        emptyDir: {}
+      initContainers:
+      - name: db-migration
+        image: formal-circuits-gpt:latest
+        command: ["python", "-m", "src.formal_circuits_gpt.database.migrations"]
+        env:
+        - name: FORMAL_CIRCUITS_GPT_DATABASE_URL
+          value: "postgresql://fcgpt:$(DATABASE_PASSWORD)@postgres-service:5432/formal_circuits_gpt"
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fcgpt-secrets
+              key: DATABASE_PASSWORD
+
+---
+# Application Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: fcgpt-service
+  namespace: formal-circuits-gpt
+  labels:
+    app: fcgpt-app
+spec:
+  selector:
+    app: fcgpt-app
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+
+---
+# Application PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fcgpt-app-pvc
+  namespace: formal-circuits-gpt
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard
+
+---
+# Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fcgpt-worker
+  namespace: formal-circuits-gpt
+  labels:
+    app: fcgpt-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fcgpt-worker
+  template:
+    metadata:
+      labels:
+        app: fcgpt-worker
+    spec:
+      containers:
+      - name: fcgpt-worker
+        image: formal-circuits-gpt:latest
+        command: ["python", "-m", "src.formal_circuits_gpt.concurrent.distributed_verifier"]
+        args: ["--role", "worker", "--coordinator-url", "http://fcgpt-service:8000"]
+        env:
+        - name: FORMAL_CIRCUITS_GPT_REDIS_URL
+          value: "redis://redis-service:6379/0"
+        envFrom:
+        - configMapRef:
+            name: fcgpt-config
+        volumeMounts:
+        - name: worker-data
+          mountPath: /data
+        - name: worker-logs
+          mountPath: /logs
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+      volumes:
+      - name: worker-data
+        persistentVolumeClaim:
+          claimName: fcgpt-worker-pvc
+      - name: worker-logs
+        emptyDir: {}
+
+---
+# Worker PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fcgpt-worker-pvc
+  namespace: formal-circuits-gpt
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+# Horizontal Pod Autoscaler for App
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fcgpt-app-hpa
+  namespace: formal-circuits-gpt
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fcgpt-app
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# Horizontal Pod Autoscaler for Workers
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fcgpt-worker-hpa
+  namespace: formal-circuits-gpt
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fcgpt-worker
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fcgpt-ingress
+  namespace: formal-circuits-gpt
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - api.formal-circuits-gpt.com
+    secretName: fcgpt-tls
+  rules:
+  - host: api.formal-circuits-gpt.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fcgpt-service
+            port:
+              number: 8000
+
+---
+# Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fcgpt-app-pdb
+  namespace: formal-circuits-gpt
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: fcgpt-app
+
+---
+# Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fcgpt-network-policy
+  namespace: formal-circuits-gpt
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  - from:
+    - podSelector: {}
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to:
+    - podSelector: {}
+
+---
+# Service Monitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fcgpt-app-metrics
+  namespace: formal-circuits-gpt
+  labels:
+    app: fcgpt-app
+spec:
+  selector:
+    matchLabels:
+      app: fcgpt-app
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
