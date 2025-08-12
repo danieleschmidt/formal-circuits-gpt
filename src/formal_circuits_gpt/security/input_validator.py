@@ -83,6 +83,17 @@ class InputValidator:
         self.max_file_size = 50 * 1024 * 1024  # 50MB
         self.max_hdl_length = 1_000_000  # 1M characters
         self.allowed_extensions = {'.v', '.vh', '.sv', '.vhd', '.vhdl'}
+        
+        # Compile regex patterns for efficiency
+        try:
+            self._dangerous_path_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.DANGEROUS_PATH_PATTERNS]
+            self._dangerous_hdl_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.DANGEROUS_HDL_PATTERNS]
+            self._sql_injection_regex = [re.compile(pattern, re.IGNORECASE) for pattern in self.SQL_INJECTION_PATTERNS]
+        except Exception:
+            # Fallback to basic patterns if compilation fails
+            self._dangerous_path_regex = []
+            self._dangerous_hdl_regex = []
+            self._sql_injection_regex = []
     
     def validate_file_path(self, file_path: str) -> ValidationResult:
         """Validate file path for security issues."""
@@ -419,3 +430,119 @@ class InputValidator:
         
         is_valid = len(errors) == 0
         return ValidationResult(is_valid, errors, warnings, sanitized_data)
+    
+    def _sanitize_control_characters(self, text: str) -> str:
+        """Remove control characters and null bytes."""
+        # Remove null bytes and other control characters
+        sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
+        
+        # Normalize line endings
+        sanitized = sanitized.replace('\r\n', '\n').replace('\r', '\n')
+        
+        return sanitized
+    
+    def _check_dangerous_patterns(self, text: str) -> List[str]:
+        """Check for dangerous patterns in text."""
+        found_patterns = []
+        
+        # Check against compiled regex patterns
+        for regex in self._dangerous_hdl_regex:
+            if regex.search(text):
+                found_patterns.append(regex.pattern)
+        
+        for regex in self._sql_injection_regex:
+            if regex.search(text):
+                found_patterns.append(regex.pattern)
+                
+        return found_patterns
+    
+    def _sanitize_dangerous_patterns(self, text: str, patterns: List[str]) -> str:
+        """Remove or neutralize dangerous patterns."""
+        sanitized = text
+        
+        # Replace dangerous patterns with safe alternatives
+        replacements = {
+            r'\$system\s*\(': '// REMOVED: $system(',
+            r'`include\s+': '// REMOVED: `include ',
+            r'`\w*`': '// REMOVED: backtick command',
+            r'<script.*?>': '// REMOVED: script tag',
+            r'javascript:': '// REMOVED: javascript:',
+            r'vbscript:': '// REMOVED: vbscript:',
+        }
+        
+        for pattern, replacement in replacements.items():
+            sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE)
+        
+        return sanitized
+    
+    def _has_valid_hdl_structure(self, text: str) -> bool:
+        """Check if text has basic HDL structure."""
+        text_lower = text.lower()
+        
+        # Check for Verilog structure
+        if any(keyword in text_lower for keyword in ['module', 'endmodule']):
+            return True
+            
+        # Check for VHDL structure
+        if any(keyword in text_lower for keyword in ['entity', 'architecture']):
+            return True
+            
+        return False
+    
+    def _attempt_structure_fix(self, text: str) -> str:
+        """Attempt to fix basic HDL structure issues."""
+        # If it looks like HDL but missing basic structure, try to add it
+        text = text.strip()
+        
+        # If it contains assignment but no module, wrap in a basic module
+        if ('assign' in text.lower() or 'always' in text.lower()) and 'module' not in text.lower():
+            # Extract potential signal names for ports
+            lines = text.split('\n')
+            text = f"module auto_generated();\n{text}\nendmodule"
+        
+        return text
+    
+    def validate_hdl_content(self, hdl_code: str) -> ValidationResult:
+        """Validate HDL content for security and format issues with enhanced sanitization."""
+        errors = []
+        warnings = []
+        sanitized_code = hdl_code
+        
+        if not hdl_code or not hdl_code.strip():
+            errors.append("HDL code cannot be empty")
+            return ValidationResult(False, errors, warnings)
+        
+        # Enhanced security checks
+        try:
+            # Remove null bytes and other control characters
+            sanitized_code = self._sanitize_control_characters(hdl_code)
+            
+            # Check for dangerous patterns
+            dangerous_found = self._check_dangerous_patterns(sanitized_code)
+            if dangerous_found:
+                if self.strict_mode:
+                    errors.extend([f"Dangerous pattern detected: {pattern}" for pattern in dangerous_found])
+                else:
+                    warnings.extend([f"Potentially dangerous pattern: {pattern}" for pattern in dangerous_found])
+                    # Sanitize the dangerous patterns
+                    sanitized_code = self._sanitize_dangerous_patterns(sanitized_code, dangerous_found)
+            
+            # Length validation
+            if len(sanitized_code) > self.max_hdl_length:
+                if self.strict_mode:
+                    errors.append(f"HDL code too long: {len(sanitized_code)} > {self.max_hdl_length}")
+                else:
+                    warnings.append(f"HDL code is very long: {len(sanitized_code)} characters")
+                    sanitized_code = sanitized_code[:self.max_hdl_length]
+            
+            # Check for basic Verilog/VHDL structure
+            if not self._has_valid_hdl_structure(sanitized_code):
+                warnings.append("HDL code may not contain valid module/entity structure")
+                # Try to fix basic structure
+                sanitized_code = self._attempt_structure_fix(sanitized_code)
+                
+        except Exception as e:
+            errors.append(f"HDL validation error: {str(e)}")
+        
+        is_valid = len(errors) == 0
+        return ValidationResult(is_valid, errors, warnings, sanitized_code if is_valid else None)
