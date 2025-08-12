@@ -159,7 +159,7 @@ class MLProofOptimizer:
             self._record_optimization(original_tactics, result, features, context)
             
             # Update models if needed
-            await self._maybe_update_models()
+            self._maybe_update_models()
             
             return result
             

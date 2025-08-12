@@ -352,15 +352,31 @@ class CircuitVerifier:
             with open(file_path, 'r', encoding='utf-8') as f:
                 hdl_code = f.read()
             
+            # Store file extension for HDL type detection
+            self._current_file_extension = file_path.suffix.lower()
+            
             # Verify using the main verify method
-            return self.verify(hdl_code, properties, timeout)
+            result = self.verify(hdl_code, properties, timeout)
+            
+            # Clear file extension
+            self._current_file_extension = None
+            
+            return result
             
         except Exception as e:
+            self._current_file_extension = None
             raise VerificationError(f"File verification failed: {str(e)}") from e
     
     def _parse_hdl(self, hdl_code: str) -> CircuitAST:
         """Parse HDL code into AST."""
-        # Try to detect HDL type from code content
+        # Check file extension first if available
+        if hasattr(self, '_current_file_extension') and self._current_file_extension:
+            if self._current_file_extension in ['.vhd', '.vhdl']:
+                return self.vhdl_parser.parse(hdl_code)
+            elif self._current_file_extension in ['.v', '.sv']:
+                return self.verilog_parser.parse(hdl_code)
+        
+        # Fallback to content-based detection
         code_lower = hdl_code.lower()
         
         if any(keyword in code_lower for keyword in ['module', 'endmodule', 'assign', 'always']):
