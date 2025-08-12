@@ -39,8 +39,17 @@ class VerilogParser:
             re.MULTILINE
         )
         self.always_pattern = re.compile(
-            r'always\s*@\s*\(([^)]+)\)\s*(begin)?(.*?)(?:end)?', 
+            r'always\s*@\s*\(([^)]+)\)\s*(begin)?\s*(.*?)(?:end\s*)?', 
             re.MULTILINE | re.DOTALL
+        )
+        # Enhanced patterns for better parsing
+        self.reg_declaration_pattern = re.compile(
+            r'reg\s+(?:\[(\d+):(\d+)\]\s*)?([\w,\s]+)\s*;',
+            re.MULTILINE
+        )
+        self.wire_declaration_pattern = re.compile(
+            r'wire\s+(?:\[(\d+):(\d+)\]\s*)?([\w,\s]+)\s*;',
+            re.MULTILINE
         )
         self.instance_pattern = re.compile(
             r'(\w+)\s+(?:#\([^)]*\))?\s*(\w+)\s*\(([^)]*)\)\s*;',
@@ -136,55 +145,113 @@ class VerilogParser:
         return '\n'.join(body_lines)
     
     def _parse_ports(self, port_list: str, module_body: str) -> List[Port]:
-        """Parse module ports."""
+        """Parse module ports with enhanced robustness."""
         ports = []
+        seen_ports = set()  # Track port names to avoid duplicates
         
         # Parse port declarations from port list (Verilog-2001 style)
         combined_text = port_list + "\n" + module_body
         
-        for match in self.port_pattern.finditer(combined_text):
-            direction = match.group(1)
-            msb = int(match.group(2)) if match.group(2) else None
-            lsb = int(match.group(3)) if match.group(3) else None
-            name = match.group(4)
+        # Enhanced regex for better port matching
+        enhanced_port_pattern = re.compile(
+            r'(input|output|inout)\s+(?:(wire|reg)\s+)?(?:\[(\d+):(\d+)\]\s*)?([\w,\s]+)',
+            re.MULTILINE | re.IGNORECASE
+        )
+        
+        for match in enhanced_port_pattern.finditer(combined_text):
+            direction = match.group(1).lower()
+            signal_kind = match.group(2)  # wire/reg qualifier
+            msb = int(match.group(3)) if match.group(3) else None
+            lsb = int(match.group(4)) if match.group(4) else None
+            names_str = match.group(5)
             
-            signal_type = SignalType(direction)
-            width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
+            # Handle multiple port names in one declaration
+            port_names = [name.strip() for name in names_str.split(',') if name.strip()]
             
-            port = Port(
-                name=name,
-                signal_type=signal_type,
-                width=width,
-                msb=msb,
-                lsb=lsb
-            )
-            ports.append(port)
+            for name in port_names:
+                if name in seen_ports:
+                    continue  # Skip duplicate ports
+                seen_ports.add(name)
+                
+                signal_type = SignalType(direction)
+                width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
+                
+                port = Port(
+                    name=name,
+                    signal_type=signal_type,
+                    width=width,
+                    msb=msb,
+                    lsb=lsb
+                )
+                ports.append(port)
+        
+        # Fallback: Parse from simple port list if no declarations found
+        if not ports and port_list.strip():
+            simple_names = [name.strip() for name in port_list.split(',') if name.strip()]
+            for name in simple_names:
+                if name not in seen_ports:
+                    # Default to input if not specified
+                    port = Port(name=name, signal_type=SignalType.INPUT, width=1)
+                    ports.append(port)
+                    seen_ports.add(name)
         
         return ports
     
     def _parse_signals(self, module_body: str) -> List[Signal]:
-        """Parse wire and reg declarations."""
+        """Parse wire and reg declarations with enhanced support."""
         signals = []
+        seen_signals = set()
         
-        # Parse wire declarations
+        # Parse wire declarations with multiple names
+        for match in self.wire_declaration_pattern.finditer(module_body):
+            msb = int(match.group(1)) if match.group(1) else None
+            lsb = int(match.group(2)) if match.group(2) else None
+            names_str = match.group(3)
+            
+            signal_names = [name.strip() for name in names_str.split(',') if name.strip()]
+            
+            for name in signal_names:
+                if name not in seen_signals:
+                    width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
+                    signal = Signal(name=name, signal_type=SignalType.WIRE, width=width)
+                    signals.append(signal)
+                    seen_signals.add(name)
+        
+        # Parse reg declarations with multiple names
+        for match in self.reg_declaration_pattern.finditer(module_body):
+            msb = int(match.group(1)) if match.group(1) else None
+            lsb = int(match.group(2)) if match.group(2) else None
+            names_str = match.group(3)
+            
+            signal_names = [name.strip() for name in names_str.split(',') if name.strip()]
+            
+            for name in signal_names:
+                if name not in seen_signals:
+                    width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
+                    signal = Signal(name=name, signal_type=SignalType.REG, width=width)
+                    signals.append(signal)
+                    seen_signals.add(name)
+        
+        # Fallback to old patterns for compatibility
         for match in self.wire_pattern.finditer(module_body):
-            msb = int(match.group(1)) if match.group(1) else None
-            lsb = int(match.group(2)) if match.group(2) else None
             name = match.group(3)
-            
-            width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
-            signal = Signal(name=name, signal_type=SignalType.WIRE, width=width)
-            signals.append(signal)
+            if name not in seen_signals:
+                msb = int(match.group(1)) if match.group(1) else None
+                lsb = int(match.group(2)) if match.group(2) else None
+                width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
+                signal = Signal(name=name, signal_type=SignalType.WIRE, width=width)
+                signals.append(signal)
+                seen_signals.add(name)
         
-        # Parse reg declarations
         for match in self.reg_pattern.finditer(module_body):
-            msb = int(match.group(1)) if match.group(1) else None
-            lsb = int(match.group(2)) if match.group(2) else None
             name = match.group(3)
-            
-            width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
-            signal = Signal(name=name, signal_type=SignalType.REG, width=width)
-            signals.append(signal)
+            if name not in seen_signals:
+                msb = int(match.group(1)) if match.group(1) else None
+                lsb = int(match.group(2)) if match.group(2) else None
+                width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
+                signal = Signal(name=name, signal_type=SignalType.REG, width=width)
+                signals.append(signal)
+                seen_signals.add(name)
         
         return signals
     
