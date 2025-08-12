@@ -31,7 +31,11 @@ class VHDLParser:
             re.MULTILINE | re.IGNORECASE
         )
         self.signal_pattern = re.compile(
-            r'signal\s+(\w+)\s*:\s*(\w+)(?:\((\d+)\s+downto\s+(\d+)\))?(?:\s*:=\s*([^;]+))?;',
+            r'signal\s+([\w\s,]+)\s*:\s*([\w_]+)(?:\((\d+)\s+downto\s+(\d+)\))?(?:\s*:=\s*([^;]+))?;',
+            re.MULTILINE | re.IGNORECASE
+        )
+        self.type_pattern = re.compile(
+            r'type\s+(\w+)\s+is\s+\([^)]*\);',
             re.MULTILINE | re.IGNORECASE
         )
         self.assignment_pattern = re.compile(
@@ -218,7 +222,7 @@ class VHDLParser:
         signals = []
         
         for match in self.signal_pattern.finditer(declarations):
-            name = match.group(1)
+            signal_names = match.group(1)
             type_name = match.group(2)
             msb = int(match.group(3)) if match.group(3) else None
             lsb = int(match.group(4)) if match.group(4) else None
@@ -227,14 +231,19 @@ class VHDLParser:
             # Calculate width
             width = abs(msb - lsb) + 1 if msb is not None and lsb is not None else 1
             
-            # VHDL signals are similar to Verilog wires
-            signal = Signal(
-                name=name,
-                signal_type=SignalType.WIRE,
-                width=width,
-                initial_value=initial_value.strip() if initial_value else None
-            )
-            signals.append(signal)
+            # Parse multiple signal names (comma-separated)
+            names = [name.strip() for name in signal_names.split(',')]
+            
+            for name in names:
+                if name:  # Skip empty names
+                    # VHDL signals are similar to Verilog wires
+                    signal = Signal(
+                        name=name,
+                        signal_type=SignalType.WIRE,
+                        width=width,
+                        initial_value=initial_value.strip() if initial_value else None
+                    )
+                    signals.append(signal)
         
         return signals
     
