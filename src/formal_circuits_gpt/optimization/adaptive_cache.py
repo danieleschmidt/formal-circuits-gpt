@@ -50,7 +50,9 @@ class AdaptiveCacheManager:
         max_memory_mb: float = 500.0,
         eviction_policy: CacheEvictionPolicy = CacheEvictionPolicy.ADAPTIVE,
         ttl_seconds: float = 3600.0,
-        learning_enabled: bool = True
+        learning_enabled: bool = True,
+        predictive_prefetch: bool = True,
+        compression_enabled: bool = True
     ):
         """Initialize adaptive cache manager.
         
@@ -60,12 +62,16 @@ class AdaptiveCacheManager:
             eviction_policy: Cache eviction policy
             ttl_seconds: Default TTL for items
             learning_enabled: Enable ML-based optimization
+            predictive_prefetch: Enable predictive prefetching
+            compression_enabled: Enable value compression
         """
         self.max_size = max_size
         self.max_memory_mb = max_memory_mb
         self.eviction_policy = eviction_policy
         self.ttl_seconds = ttl_seconds
         self.learning_enabled = learning_enabled
+        self.predictive_prefetch = predictive_prefetch
+        self.compression_enabled = compression_enabled
         
         self._cache: Dict[str, CacheItem] = {}
         self._lock = threading.RLock()
@@ -90,6 +96,21 @@ class AdaptiveCacheManager:
         self._eviction_history: deque = deque(maxlen=100)
         self._optimization_intervals = deque(maxlen=50)
         self._last_optimization = time.time()
+        
+        # Predictive prefetching
+        self._access_sequences: deque = deque(maxlen=1000)  # Track access patterns
+        self._pattern_predictor: Dict[str, List[str]] = {}  # key -> likely next keys
+        
+        # Compression support
+        if compression_enabled:
+            try:
+                import zlib
+                self._compressor = zlib
+            except ImportError:
+                self._compressor = None
+                self.compression_enabled = False
+        else:
+            self._compressor = None
         
     def get(self, key: str) -> Optional[Any]:
         """Get item from cache."""
@@ -120,7 +141,18 @@ class AdaptiveCacheManager:
             recent_accesses = len(self._access_patterns[key])
             item.hit_rate = recent_accesses / max(1, self._total_requests)
             
-            return item.value
+            # Track access sequence for predictive prefetching
+            self._access_sequences.append(key)
+            if self.predictive_prefetch:
+                self._update_access_patterns(key)
+                self._trigger_predictive_prefetch(key)
+            
+            # Decompress value if needed
+            value = item.value
+            if self.compression_enabled and hasattr(item, '_compressed') and item._compressed:
+                value = self._decompress_value(value)
+            
+            return value
     
     def put(
         self,
@@ -131,9 +163,21 @@ class AdaptiveCacheManager:
     ) -> bool:
         """Put item in cache."""
         with self._lock:
+            # Compress value if enabled
+            stored_value = value
+            compressed = False
+            if self.compression_enabled and self._compressor:
+                try:
+                    compressed_data = self._compress_value(value)
+                    if len(compressed_data) < len(pickle.dumps(value)) * 0.8:  # Only compress if >20% savings
+                        stored_value = compressed_data
+                        compressed = True
+                except:
+                    pass  # Fall back to uncompressed
+            
             # Calculate size
             try:
-                size_bytes = len(pickle.dumps(value))
+                size_bytes = len(pickle.dumps(stored_value))
             except:
                 size_bytes = 1024  # Default estimate
             
@@ -144,10 +188,14 @@ class AdaptiveCacheManager:
             # Create cache item
             item = CacheItem(
                 key=key,
-                value=value,
+                value=stored_value,
                 computation_cost_ms=computation_cost_ms,
                 size_bytes=size_bytes
             )
+            
+            # Mark compression status
+            if compressed:
+                item._compressed = True
             
             # Remove existing item if present
             if key in self._cache:
@@ -393,3 +441,59 @@ class AdaptiveCacheManager:
                 "items_evicted": initial_size - len(self._cache),
                 "memory_freed_mb": initial_memory - self._memory_usage_mb
             }
+    
+    def _compress_value(self, value: Any) -> bytes:
+        """Compress value using zlib."""
+        if not self._compressor:
+            return pickle.dumps(value)
+        
+        pickled = pickle.dumps(value)
+        return self._compressor.compress(pickled)
+    
+    def _decompress_value(self, compressed_data: bytes) -> Any:
+        """Decompress value using zlib."""
+        if not self._compressor:
+            return pickle.loads(compressed_data)
+        
+        decompressed = self._compressor.decompress(compressed_data)
+        return pickle.loads(decompressed)
+    
+    def _update_access_patterns(self, accessed_key: str):
+        """Update access patterns for predictive prefetching."""
+        if len(self._access_sequences) < 2:
+            return
+        
+        # Look at recent access patterns
+        recent_sequences = list(self._access_sequences)[-10:]  # Last 10 accesses
+        
+        # Find patterns where this key was accessed
+        for i in range(len(recent_sequences) - 1):
+            if recent_sequences[i] == accessed_key:
+                next_key = recent_sequences[i + 1]
+                
+                if accessed_key not in self._pattern_predictor:
+                    self._pattern_predictor[accessed_key] = []
+                
+                # Add to predictions with frequency tracking
+                predictions = self._pattern_predictor[accessed_key]
+                if next_key not in predictions:
+                    predictions.append(next_key)
+                
+                # Keep only top 5 predictions
+                if len(predictions) > 5:
+                    self._pattern_predictor[accessed_key] = predictions[-5:]
+    
+    def _trigger_predictive_prefetch(self, accessed_key: str):
+        """Trigger predictive prefetching based on access patterns."""
+        if accessed_key not in self._pattern_predictor:
+            return
+        
+        # Get predicted next accesses
+        predicted_keys = self._pattern_predictor[accessed_key]
+        
+        # Check if predicted keys are not in cache and could be prefetched
+        for predicted_key in predicted_keys:
+            if predicted_key not in self._cache:
+                # In a real implementation, this would trigger background prefetch
+                # For now, we just track the prediction
+                pass
