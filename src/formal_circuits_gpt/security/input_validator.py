@@ -59,6 +59,20 @@ class InputValidator:
         r'`include\s+',    # File inclusion
         r'`define\s+',     # Macro definition (can be abused)
         r'\\\\',           # Excessive escaping
+        r'<script\b[^>]*>',  # Script tags
+        r'javascript:',    # JavaScript URIs
+        r'vbscript:',      # VBScript URIs
+        r'data:.*base64',  # Base64 data URIs
+        r'eval\s*\(',      # Code evaluation
+        r'exec\s*\(',      # Code execution
+        r'system\s*\(',    # System calls
+        r'shell_exec\s*\(',# Shell execution
+        r'passthru\s*\(',  # Command passthrough
+        r'`[^`]*`',        # Backtick execution
+        r'\${[^}]*}',      # Variable interpolation
+        r'%[A-Za-z_]+%',   # Environment variables
+        r'\.\./',          # Path traversal
+        r'\.\.\\',         # Windows path traversal
     ]
     
     # SQL injection patterns (for database queries)
