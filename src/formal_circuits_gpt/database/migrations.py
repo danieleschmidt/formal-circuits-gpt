@@ -9,29 +9,30 @@ from .connection import DatabaseManager
 
 class MigrationError(Exception):
     """Migration execution error."""
+
     pass
 
 
 class Migration:
     """Individual database migration."""
-    
+
     def __init__(self, version: int, name: str, up_sql: str, down_sql: str = ""):
         self.version = version
         self.name = name
         self.up_sql = up_sql
         self.down_sql = down_sql
-    
+
     def __repr__(self):
         return f"Migration({self.version}, {self.name})"
 
 
 class MigrationManager:
     """Manages database migrations."""
-    
+
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
         self.migrations = self._load_migrations()
-    
+
     def _load_migrations(self) -> List[Migration]:
         """Load all available migrations."""
         migrations = [
@@ -45,9 +46,8 @@ class MigrationManager:
                         applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """,
-                down_sql="DROP TABLE IF EXISTS schema_migrations;"
+                down_sql="DROP TABLE IF EXISTS schema_migrations;",
             ),
-            
             Migration(
                 version=2,
                 name="add_performance_indexes",
@@ -65,9 +65,8 @@ class MigrationManager:
                     DROP INDEX IF EXISTS idx_proof_cache_status;
                     DROP INDEX IF EXISTS idx_verification_status;
                     DROP INDEX IF EXISTS idx_circuit_updated;
-                """
+                """,
             ),
-            
             Migration(
                 version=3,
                 name="add_proof_metrics",
@@ -81,9 +80,8 @@ class MigrationManager:
                     ALTER TABLE verification_results 
                     ADD COLUMN memory_usage INTEGER DEFAULT 0;
                 """,
-                down_sql=""  # Cannot easily rollback ALTER TABLE ADD COLUMN in SQLite
+                down_sql="",  # Cannot easily rollback ALTER TABLE ADD COLUMN in SQLite
             ),
-            
             Migration(
                 version=4,
                 name="add_circuit_tags",
@@ -105,9 +103,8 @@ class MigrationManager:
                 """,
                 down_sql="""
                     DROP TABLE IF EXISTS circuit_tags;
-                """
+                """,
             ),
-            
             Migration(
                 version=5,
                 name="add_lemma_dependencies",
@@ -131,44 +128,48 @@ class MigrationManager:
                 """,
                 down_sql="""
                     DROP TABLE IF EXISTS lemma_dependencies;
-                """
-            )
+                """,
+            ),
         ]
-        
+
         return sorted(migrations, key=lambda m: m.version)
-    
+
     def get_current_version(self) -> int:
         """Get current database schema version."""
         try:
             # Check if migrations table exists
-            result = self.db.execute_query("""
+            result = self.db.execute_query(
+                """
                 SELECT name FROM sqlite_master 
                 WHERE type='table' AND name='schema_migrations'
-            """)
-            
+            """
+            )
+
             if not result:
                 return 0
-            
+
             # Get latest migration version
-            result = self.db.execute_query("""
+            result = self.db.execute_query(
+                """
                 SELECT MAX(version) as version FROM schema_migrations
-            """)
-            
-            return result[0]['version'] if result and result[0]['version'] else 0
-            
+            """
+            )
+
+            return result[0]["version"] if result and result[0]["version"] else 0
+
         except Exception:
             return 0
-    
+
     def get_pending_migrations(self) -> List[Migration]:
         """Get migrations that haven't been applied yet."""
         current_version = self.get_current_version()
         return [m for m in self.migrations if m.version > current_version]
-    
+
     def run_migrations(self) -> List[Migration]:
         """Run all pending migrations."""
         pending = self.get_pending_migrations()
         applied = []
-        
+
         for migration in pending:
             try:
                 self._apply_migration(migration)
@@ -177,94 +178,111 @@ class MigrationManager:
             except Exception as e:
                 print(f"❌ Failed to apply migration {migration.version}: {e}")
                 break
-        
+
         return applied
-    
+
     def _apply_migration(self, migration: Migration):
         """Apply a single migration."""
         with self.db.transaction() as conn:
             cursor = conn.cursor()
-            
+
             # Execute migration SQL
-            for statement in migration.up_sql.split(';'):
+            for statement in migration.up_sql.split(";"):
                 statement = statement.strip()
                 if statement:
                     cursor.execute(statement)
-            
+
             # Record migration in schema_migrations table
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO schema_migrations (version, name) 
                 VALUES (?, ?)
-            """, (migration.version, migration.name))
-    
+            """,
+                (migration.version, migration.name),
+            )
+
     def rollback_migration(self, target_version: int) -> List[Migration]:
         """Rollback to a specific migration version."""
         current_version = self.get_current_version()
-        
+
         if target_version >= current_version:
             return []
-        
+
         # Get migrations to rollback (in reverse order)
         to_rollback = [
-            m for m in reversed(self.migrations) 
+            m
+            for m in reversed(self.migrations)
             if target_version < m.version <= current_version
         ]
-        
+
         rolled_back = []
-        
+
         for migration in to_rollback:
             try:
                 if migration.down_sql:
                     self._rollback_migration(migration)
                     rolled_back.append(migration)
-                    print(f"⬇️ Rolled back migration {migration.version}: {migration.name}")
+                    print(
+                        f"⬇️ Rolled back migration {migration.version}: {migration.name}"
+                    )
                 else:
-                    print(f"⚠️ Cannot rollback migration {migration.version}: no down_sql provided")
+                    print(
+                        f"⚠️ Cannot rollback migration {migration.version}: no down_sql provided"
+                    )
                     break
             except Exception as e:
                 print(f"❌ Failed to rollback migration {migration.version}: {e}")
                 break
-        
+
         return rolled_back
-    
+
     def _rollback_migration(self, migration: Migration):
         """Rollback a single migration."""
         with self.db.transaction() as conn:
             cursor = conn.cursor()
-            
+
             # Execute rollback SQL
-            for statement in migration.down_sql.split(';'):
+            for statement in migration.down_sql.split(";"):
                 statement = statement.strip()
                 if statement:
                     cursor.execute(statement)
-            
+
             # Remove migration record
-            cursor.execute("""
+            cursor.execute(
+                """
                 DELETE FROM schema_migrations WHERE version = ?
-            """, (migration.version,))
-    
+            """,
+                (migration.version,),
+            )
+
     def get_migration_status(self) -> Dict[str, Any]:
         """Get current migration status."""
         current_version = self.get_current_version()
         pending = self.get_pending_migrations()
-        
+
         applied_migrations = []
         try:
-            results = self.db.execute_query("""
+            results = self.db.execute_query(
+                """
                 SELECT version, name, applied_at 
                 FROM schema_migrations 
                 ORDER BY version
-            """)
+            """
+            )
             applied_migrations = [dict(row) for row in results]
         except Exception:
             pass
-        
+
         return {
-            'current_version': current_version,
-            'latest_available': max(m.version for m in self.migrations) if self.migrations else 0,
-            'pending_count': len(pending),
-            'pending_migrations': [{'version': m.version, 'name': m.name} for m in pending],
-            'applied_migrations': applied_migrations
+            "current_version": current_version,
+            "latest_available": (
+                max(m.version for m in self.migrations) if self.migrations else 0
+            ),
+            "pending_count": len(pending),
+            "pending_migrations": [
+                {"version": m.version, "name": m.name} for m in pending
+            ],
+            "applied_migrations": applied_migrations,
         }
 
 
@@ -272,15 +290,17 @@ def run_migrations(db_manager: Optional[DatabaseManager] = None) -> List[Migrati
     """Run all pending migrations."""
     if db_manager is None:
         db_manager = DatabaseManager()
-    
+
     migration_manager = MigrationManager(db_manager)
     return migration_manager.run_migrations()
 
 
-def get_migration_status(db_manager: Optional[DatabaseManager] = None) -> Dict[str, Any]:
+def get_migration_status(
+    db_manager: Optional[DatabaseManager] = None,
+) -> Dict[str, Any]:
     """Get migration status."""
     if db_manager is None:
         db_manager = DatabaseManager()
-    
+
     migration_manager = MigrationManager(db_manager)
     return migration_manager.get_migration_status()

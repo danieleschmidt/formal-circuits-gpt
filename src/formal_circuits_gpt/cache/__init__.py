@@ -2,6 +2,4 @@
 
 from .optimized_cache import OptimizedCacheManager as CacheManager
 
-__all__ = [
-    "CacheManager"
-]
+__all__ = ["CacheManager"]

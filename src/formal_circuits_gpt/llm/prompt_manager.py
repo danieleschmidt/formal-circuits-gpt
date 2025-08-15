@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class ProofTemplate:
     """Template for proof generation."""
+
     name: str
     prover: str
     template: str
@@ -15,15 +16,15 @@ class ProofTemplate:
 
 class PromptManager:
     """Manages prompts for different proof generation tasks."""
-    
+
     def __init__(self):
         """Initialize prompt manager with templates."""
         self.templates = self._load_templates()
-    
+
     def _load_templates(self) -> Dict[str, ProofTemplate]:
         """Load proof templates for different provers."""
         templates = {}
-        
+
         # Isabelle proof template
         templates["isabelle_main"] = ProofTemplate(
             name="isabelle_main",
@@ -53,12 +54,12 @@ Requirements:
 6. Handle all edge cases and corner conditions
 
 Generate the complete Isabelle theory with all proofs:""",
-            variables=["context", "formal_spec", "verification_goals", "properties"]
+            variables=["context", "formal_spec", "verification_goals", "properties"],
         )
-        
+
         # Coq proof template
         templates["coq_main"] = ProofTemplate(
-            name="coq_main", 
+            name="coq_main",
             prover="coq",
             template="""You are an expert in formal verification using Coq.
 
@@ -85,13 +86,13 @@ Requirements:
 6. Handle all cases systematically
 
 Generate the complete Coq file with all proofs:""",
-            variables=["context", "formal_spec", "verification_goals", "properties"]
+            variables=["context", "formal_spec", "verification_goals", "properties"],
         )
-        
+
         # Lemma-specific templates
         templates["isabelle_lemma"] = ProofTemplate(
             name="isabelle_lemma",
-            prover="isabelle", 
+            prover="isabelle",
             template="""Generate an Isabelle proof for the following lemma:
 
 CONTEXT:
@@ -107,9 +108,9 @@ Provide a complete proof using appropriate Isabelle tactics. The proof should be
 4. Use efficient proof methods
 
 Proof:""",
-            variables=["context", "lemma_statement"]
+            variables=["context", "lemma_statement"],
         )
-        
+
         templates["coq_lemma"] = ProofTemplate(
             name="coq_lemma",
             prover="coq",
@@ -128,58 +129,68 @@ Provide a complete proof using appropriate Coq tactics. The proof should be:
 4. Use efficient tactics
 
 Proof:""",
-            variables=["context", "lemma_statement"]
+            variables=["context", "lemma_statement"],
         )
-        
+
         return templates
-    
-    def create_proof_prompt(self, formal_spec: str, verification_goals: str,
-                          properties: List[str], prover: str = "isabelle",
-                          context: str = "") -> str:
+
+    def create_proof_prompt(
+        self,
+        formal_spec: str,
+        verification_goals: str,
+        properties: List[str],
+        prover: str = "isabelle",
+        context: str = "",
+    ) -> str:
         """Create prompt for main proof generation.
-        
+
         Args:
             formal_spec: Formal specification
             verification_goals: Goals to verify
             properties: List of properties
             prover: Target prover
             context: Additional context
-            
+
         Returns:
             Generated prompt string
         """
         template_name = f"{prover}_main"
         template = self.templates.get(template_name)
-        
+
         if not template:
             raise ValueError(f"No template found for {template_name}")
-        
+
         # Format properties as string
         properties_str = "\n".join(f"- {prop}" for prop in properties)
-        
+
         return template.template.format(
             context=context,
             formal_spec=formal_spec,
             verification_goals=verification_goals,
-            properties=properties_str
+            properties=properties_str,
         )
-    
-    def create_lemma_prompt(self, lemma_statement: str, context: str = "",
-                          prover: str = "isabelle") -> str:
+
+    def create_lemma_prompt(
+        self, lemma_statement: str, context: str = "", prover: str = "isabelle"
+    ) -> str:
         """Create prompt for lemma proof generation."""
         template_name = f"{prover}_lemma"
         template = self.templates.get(template_name)
-        
+
         if not template:
             raise ValueError(f"No template found for {template_name}")
-        
+
         return template.template.format(
-            context=context,
-            lemma_statement=lemma_statement
+            context=context, lemma_statement=lemma_statement
         )
-    
-    def create_inductive_prompt(self, base_case: str, inductive_step: str,
-                              context: str = "", prover: str = "isabelle") -> str:
+
+    def create_inductive_prompt(
+        self,
+        base_case: str,
+        inductive_step: str,
+        context: str = "",
+        prover: str = "isabelle",
+    ) -> str:
         """Create prompt for inductive proof generation."""
         inductive_template = f"""Generate an inductive proof using {prover.title()}.
 
@@ -199,11 +210,12 @@ Generate a complete inductive proof that:
 4. Is syntactically correct for {prover.title()}
 
 Proof:"""
-        
+
         return inductive_template
-    
-    def create_sketch_prompt(self, goal: str, context: str = "",
-                           prover: str = "isabelle") -> str:
+
+    def create_sketch_prompt(
+        self, goal: str, context: str = "", prover: str = "isabelle"
+    ) -> str:
         """Create prompt for proof sketch generation."""
         sketch_template = f"""Generate a high-level proof sketch for the following goal using {prover.title()}.
 
@@ -223,14 +235,15 @@ Provide a structured proof sketch that outlines:
 Focus on the logical structure rather than detailed tactics.
 
 Proof Sketch:"""
-        
+
         return sketch_template
-    
-    def create_refinement_prompt(self, original_proof: str, errors: List[str],
-                               prover: str = "isabelle") -> str:
+
+    def create_refinement_prompt(
+        self, original_proof: str, errors: List[str], prover: str = "isabelle"
+    ) -> str:
         """Create prompt for proof refinement."""
         error_str = "\n".join(f"- {error}" for error in errors)
-        
+
         refinement_template = f"""The following {prover.title()} proof has errors. Please fix them and provide a corrected version.
 
 ORIGINAL PROOF:
@@ -246,9 +259,9 @@ Please provide a corrected proof that:
 4. Is logically sound and complete
 
 CORRECTED PROOF:"""
-        
+
         return refinement_template
-    
+
     def create_optimization_prompt(self, proof: str, prover: str = "isabelle") -> str:
         """Create prompt for proof optimization."""
         optimization_template = f"""Optimize the following {prover.title()} proof to make it more concise and efficient.
@@ -264,19 +277,17 @@ Please provide an optimized version that:
 5. Is syntactically correct for {prover.title()}
 
 OPTIMIZED PROOF:"""
-        
+
         return optimization_template
-    
-    def add_custom_template(self, name: str, prover: str, template: str,
-                          variables: List[str]) -> None:
+
+    def add_custom_template(
+        self, name: str, prover: str, template: str, variables: List[str]
+    ) -> None:
         """Add custom proof template."""
         self.templates[name] = ProofTemplate(
-            name=name,
-            prover=prover,
-            template=template,
-            variables=variables
+            name=name, prover=prover, template=template, variables=variables
         )
-    
+
     def get_template(self, name: str) -> Optional[ProofTemplate]:
         """Get template by name."""
         return self.templates.get(name)

@@ -11,7 +11,7 @@ from .llm_client import (
     LLMResponse,
     OpenAIClient,
     AnthropicClient,
-    LLMManager
+    LLMManager,
 )
 
 # Aliases for backward compatibility with test expectations
@@ -21,15 +21,15 @@ AnthropicProvider = AnthropicClient
 __all__ = [
     "ProofGenerator",
     "ProofRefiner",
-    "PromptManager", 
+    "PromptManager",
     "ResponseParser",
     "LLMClient",
     "LLMProvider",
-    "LLMError", 
+    "LLMError",
     "LLMResponse",
     "OpenAIClient",
     "AnthropicClient",
     "OpenAIProvider",  # Alias
     "AnthropicProvider",  # Alias
-    "LLMManager"
+    "LLMManager",
 ]

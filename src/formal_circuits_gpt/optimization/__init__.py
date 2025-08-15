@@ -6,8 +6,8 @@ from .resource_manager import ResourceManager, ResourceLimits
 
 __all__ = [
     "AdaptiveCacheManager",
-    "ProofOptimizer", 
+    "ProofOptimizer",
     "OptimizationLevel",
     "ResourceManager",
-    "ResourceLimits"
+    "ResourceLimits",
 ]

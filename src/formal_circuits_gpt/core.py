@@ -23,18 +23,18 @@ from .reliability.rate_limiter import rate_limiter_manager
 
 class CircuitVerifier:
     """Main interface for circuit verification using LLMs and theorem provers."""
-    
+
     def __init__(
         self,
         prover: str = "isabelle",
-        model: str = "gpt-4-turbo", 
+        model: str = "gpt-4-turbo",
         temperature: float = 0.1,
         refinement_rounds: int = 5,
         debug_mode: bool = False,
-        strict_mode: bool = True
+        strict_mode: bool = True,
     ):
         """Initialize the circuit verifier.
-        
+
         Args:
             prover: Theorem prover to use ("isabelle" or "coq")
             model: LLM model to use for proof generation
@@ -48,133 +48,137 @@ class CircuitVerifier:
         self.logger = get_logger("circuit_verifier")
         self.health_checker = HealthChecker()
         self.session_id = str(uuid.uuid4())
-        
+
         # Validate inputs
         self._validate_init_params(prover, model, temperature, refinement_rounds)
-        
+
         self.prover = prover
         self.model = model
         self.temperature = temperature
         self.refinement_rounds = refinement_rounds
         self.debug_mode = debug_mode
         self.strict_mode = strict_mode
-        
+
         # Initialize components with error handling
         try:
             self.llm_manager = LLMManager.create_default()
             self.property_generator = PropertyGenerator()
-            
+
             # Initialize parsers
             self.verilog_parser = VerilogParser()
             self.vhdl_parser = VHDLParser()
-            
+
             # Initialize translators
             self.isabelle_translator = IsabelleTranslator()
             self.coq_translator = CoqTranslator()
-            
+
             # Initialize prover interfaces (will be created when needed)
             self._prover_interface = None
-            
+
             # Initialize reliability components
             self.llm_circuit_breaker = circuit_breaker_manager.get_breaker(
-                name=f"llm_{model}",
-                failure_threshold=5,
-                timeout=120.0
+                name=f"llm_{model}", failure_threshold=5, timeout=120.0
             )
             self.prover_circuit_breaker = circuit_breaker_manager.get_breaker(
-                name=f"prover_{prover}",
-                failure_threshold=3,
-                timeout=60.0
+                name=f"prover_{prover}", failure_threshold=3, timeout=60.0
             )
-            
+
             # Initialize rate limiters for API calls
             self.llm_rate_limiter = rate_limiter_manager.create_token_bucket(
                 name=f"llm_{model}",
                 capacity=60,  # 60 requests
-                refill_rate=1.0  # 1 per second
+                refill_rate=1.0,  # 1 per second
             )
-            
+
             # Initialize retry policy
             self.retry_policy = ExponentialBackoff(
-                max_attempts=3,
-                base_delay=1.0,
-                max_delay=30.0
+                max_attempts=3, base_delay=1.0, max_delay=30.0
             )
             self.retry_operation = RetryableOperation(self.retry_policy)
-            
+
             # Log initialization
             self.logger.set_context(
-                session_id=self.session_id,
-                prover=prover,
-                model=model
+                session_id=self.session_id, prover=prover, model=model
             )
-            self.logger.info("CircuitVerifier initialized successfully with reliability patterns")
-            
+            self.logger.info(
+                "CircuitVerifier initialized successfully with reliability patterns"
+            )
+
         except Exception as e:
             self.logger.error(f"Failed to initialize CircuitVerifier: {str(e)}")
             raise VerificationError(f"Initialization failed: {str(e)}") from e
-    
-    def _validate_init_params(self, prover: str, model: str, temperature: float, refinement_rounds: int):
+
+    def _validate_init_params(
+        self, prover: str, model: str, temperature: float, refinement_rounds: int
+    ):
         """Validate initialization parameters."""
         prover_result = self.validator.validate_prover_name(prover)
         if not prover_result.is_valid:
             raise SecurityError(f"Invalid prover: {'; '.join(prover_result.errors)}")
-        
+
         model_result = self.validator.validate_model_name(model)
         if not model_result.is_valid:
             raise SecurityError(f"Invalid model: {'; '.join(model_result.errors)}")
-        
+
         temp_result = self.validator.validate_temperature(temperature)
         if not temp_result.is_valid:
             raise SecurityError(f"Invalid temperature: {'; '.join(temp_result.errors)}")
-        
-        if not isinstance(refinement_rounds, int) or refinement_rounds < 0 or refinement_rounds > 20:
+
+        if (
+            not isinstance(refinement_rounds, int)
+            or refinement_rounds < 0
+            or refinement_rounds > 20
+        ):
             raise SecurityError("Refinement rounds must be an integer between 0 and 20")
-        
+
     def verify(
         self,
         hdl_code: str,
         properties: Union[List[str], str, None] = None,
-        timeout: int = 300
+        timeout: int = 300,
     ) -> "ProofResult":
         """Verify circuit properties.
-        
+
         Args:
             hdl_code: Verilog or VHDL source code
             properties: List of properties to verify (auto-generated if None)
             timeout: Verification timeout in seconds
-            
+
         Returns:
             ProofResult containing verification status and proof
-            
+
         Raises:
             VerificationError: If verification fails
             SecurityError: If input validation fails
         """
         verification_id = str(uuid.uuid4())
         start_time = time.time()
-        
+
         try:
             # Step 0: Input validation and security checks
             self.logger.set_context(verification_id=verification_id)
             self.logger.log_verification_start("hdl_code", self.prover, self.model)
-            
+
             # Validate HDL content
             hdl_validation = self.validator.validate_hdl_content(hdl_code)
             if not hdl_validation.is_valid:
                 self.logger.log_security_event(
-                    "input_validation_failed", 
+                    "input_validation_failed",
                     f"HDL validation errors: {'; '.join(hdl_validation.errors)}",
-                    "error"
+                    "error",
                 )
-                raise SecurityError(f"HDL validation failed: {'; '.join(hdl_validation.errors)}")
-            
+                raise SecurityError(
+                    f"HDL validation failed: {'; '.join(hdl_validation.errors)}"
+                )
+
             if hdl_validation.warnings:
-                self.logger.warning(f"HDL validation warnings: {'; '.join(hdl_validation.warnings)}")
-            
+                self.logger.warning(
+                    f"HDL validation warnings: {'; '.join(hdl_validation.warnings)}"
+                )
+
             # Use sanitized HDL content
             sanitized_hdl = hdl_validation.sanitized_input
-            
+
             # Validate properties
             if properties is not None:
                 prop_validation = self.validator.validate_properties(properties)
@@ -182,28 +186,34 @@ class CircuitVerifier:
                     self.logger.log_security_event(
                         "property_validation_failed",
                         f"Property validation errors: {'; '.join(prop_validation.errors)}",
-                        "error"
+                        "error",
                     )
-                    raise SecurityError(f"Property validation failed: {'; '.join(prop_validation.errors)}")
+                    raise SecurityError(
+                        f"Property validation failed: {'; '.join(prop_validation.errors)}"
+                    )
                 properties = prop_validation.sanitized_input
-            
+
             # Validate timeout
             timeout_validation = self.validator.validate_timeout(timeout)
             if not timeout_validation.is_valid:
-                raise SecurityError(f"Timeout validation failed: {'; '.join(timeout_validation.errors)}")
+                raise SecurityError(
+                    f"Timeout validation failed: {'; '.join(timeout_validation.errors)}"
+                )
             timeout = timeout_validation.sanitized_input
-            
+
             # Step 1: Parse HDL code with error handling
             self.logger.info("Starting HDL parsing")
             parse_start = time.time()
             try:
                 ast = self._parse_hdl(sanitized_hdl)
                 parse_time = (time.time() - parse_start) * 1000
-                self.logger.log_performance("hdl_parsing", parse_time, modules_count=len(ast.modules))
+                self.logger.log_performance(
+                    "hdl_parsing", parse_time, modules_count=len(ast.modules)
+                )
             except Exception as e:
                 self.logger.error(f"HDL parsing failed: {str(e)}")
                 raise VerificationError(f"Failed to parse HDL code: {str(e)}") from e
-            
+
             # Step 2: Generate or validate properties
             self.logger.info("Generating/validating properties")
             prop_start = time.time()
@@ -215,103 +225,147 @@ class CircuitVerifier:
                     property_list = [properties]
                 else:
                     property_list = properties
-                
+
                 prop_time = (time.time() - prop_start) * 1000
-                self.logger.log_performance("property_generation", prop_time, properties_count=len(property_list))
+                self.logger.log_performance(
+                    "property_generation",
+                    prop_time,
+                    properties_count=len(property_list),
+                )
             except Exception as e:
                 self.logger.error(f"Property generation failed: {str(e)}")
-                raise VerificationError(f"Failed to generate properties: {str(e)}") from e
-            
+                raise VerificationError(
+                    f"Failed to generate properties: {str(e)}"
+                ) from e
+
             # Step 3: Translate to formal specification
             self.logger.info(f"Translating to {self.prover} specification")
             translate_start = time.time()
             try:
                 if self.prover == "isabelle":
                     formal_spec = self.isabelle_translator.translate(ast)
-                    verification_goals = self.isabelle_translator.generate_verification_goals(ast, property_list)
+                    verification_goals = (
+                        self.isabelle_translator.generate_verification_goals(
+                            ast, property_list
+                        )
+                    )
                 else:  # coq
                     formal_spec = self.coq_translator.translate(ast)
-                    verification_goals = self.coq_translator.generate_verification_goals(ast, property_list)
-                
+                    verification_goals = (
+                        self.coq_translator.generate_verification_goals(
+                            ast, property_list
+                        )
+                    )
+
                 translate_time = (time.time() - translate_start) * 1000
-                self.logger.log_performance("translation", translate_time, spec_length=len(formal_spec))
+                self.logger.log_performance(
+                    "translation", translate_time, spec_length=len(formal_spec)
+                )
             except Exception as e:
                 self.logger.error(f"Translation to {self.prover} failed: {str(e)}")
-                raise VerificationError(f"Failed to translate to {self.prover}: {str(e)}") from e
-            
+                raise VerificationError(
+                    f"Failed to translate to {self.prover}: {str(e)}"
+                ) from e
+
             # Step 4: Generate proof with LLM
             self.logger.info(f"Generating proof with {self.model}")
             llm_start = time.time()
             try:
-                proof_content = self._generate_proof_with_llm(formal_spec, verification_goals, property_list)
+                proof_content = self._generate_proof_with_llm(
+                    formal_spec, verification_goals, property_list
+                )
                 llm_time = (time.time() - llm_start) * 1000
-                self.logger.log_performance("llm_proof_generation", llm_time, proof_length=len(proof_content))
+                self.logger.log_performance(
+                    "llm_proof_generation", llm_time, proof_length=len(proof_content)
+                )
             except Exception as e:
                 self.logger.error(f"LLM proof generation failed: {str(e)}")
-                raise VerificationError(f"Failed to generate proof with LLM: {str(e)}") from e
-            
+                raise VerificationError(
+                    f"Failed to generate proof with LLM: {str(e)}"
+                ) from e
+
             # Step 5: Verify proof with theorem prover
             self.logger.info(f"Verifying proof with {self.prover}")
             prover_start = time.time()
             try:
                 verification_result = self._verify_with_prover(proof_content)
                 prover_time = (time.time() - prover_start) * 1000
-                self.logger.log_performance("proof_verification", prover_time, success=verification_result.success)
+                self.logger.log_performance(
+                    "proof_verification",
+                    prover_time,
+                    success=verification_result.success,
+                )
             except Exception as e:
                 self.logger.error(f"Proof verification failed: {str(e)}")
                 raise VerificationError(f"Failed to verify proof: {str(e)}") from e
-            
+
             # Step 6: Refine proof if needed
             refinement_attempts = 0
             if not verification_result.success and self.refinement_rounds > 0:
-                self.logger.info(f"Proof failed, attempting refinement (max {self.refinement_rounds} rounds)")
-                
+                self.logger.info(
+                    f"Proof failed, attempting refinement (max {self.refinement_rounds} rounds)"
+                )
+
                 for attempt in range(self.refinement_rounds):
                     refinement_attempts += 1
                     refine_start = time.time()
-                    
+
                     try:
-                        refined_proof = self._refine_proof(proof_content, verification_result.errors)
+                        refined_proof = self._refine_proof(
+                            proof_content, verification_result.errors
+                        )
                         refined_result = self._verify_with_prover(refined_proof)
-                        
+
                         refine_time = (time.time() - refine_start) * 1000
                         self.logger.log_performance(
-                            f"proof_refinement_attempt_{attempt+1}", 
-                            refine_time, 
-                            success=refined_result.success
+                            f"proof_refinement_attempt_{attempt+1}",
+                            refine_time,
+                            success=refined_result.success,
                         )
-                        
+
                         if refined_result.success:
-                            self.logger.info(f"Proof refinement successful on attempt {attempt+1}")
+                            self.logger.info(
+                                f"Proof refinement successful on attempt {attempt+1}"
+                            )
                             proof_content = refined_proof
                             verification_result = refined_result
                             break
                         else:
-                            self.logger.warning(f"Proof refinement attempt {attempt+1} failed")
+                            self.logger.warning(
+                                f"Proof refinement attempt {attempt+1} failed"
+                            )
                     except Exception as e:
-                        self.logger.warning(f"Proof refinement attempt {attempt+1} error: {str(e)}")
-                        
+                        self.logger.warning(
+                            f"Proof refinement attempt {attempt+1} error: {str(e)}"
+                        )
+
                 if not verification_result.success:
-                    self.logger.warning(f"All {self.refinement_rounds} refinement attempts failed")
-            
+                    self.logger.warning(
+                        f"All {self.refinement_rounds} refinement attempts failed"
+                    )
+
             # Create result
             status = "VERIFIED" if verification_result.success else "FAILED"
             total_time = (time.time() - start_time) * 1000
-            
+
             # Log completion
             self.logger.log_verification_end(status, total_time, len(property_list))
-            
+
             return ProofResult(
                 status=status,
                 proof_code=proof_content,
-                errors=verification_result.errors if not verification_result.success else [],
+                errors=(
+                    verification_result.errors
+                    if not verification_result.success
+                    else []
+                ),
                 properties_verified=property_list,
                 ast=ast,
                 verification_id=verification_id,
                 duration_ms=total_time,
-                refinement_attempts=refinement_attempts
+                refinement_attempts=refinement_attempts,
             )
-            
+
         except (SecurityError, VerificationError):
             # Re-raise known exceptions
             total_time = (time.time() - start_time) * 1000
@@ -322,24 +376,24 @@ class CircuitVerifier:
             total_time = (time.time() - start_time) * 1000
             self.logger.error(f"Unexpected error during verification: {str(e)}")
             self.logger.log_verification_end("ERROR", total_time, 0)
-            
+
             if self.debug_mode:
                 raise
             raise VerificationError(f"Verification failed: {str(e)}") from e
-    
+
     def verify_file(
         self,
         hdl_file: str,
         properties: Optional[Union[List[str], str]] = None,
-        timeout: int = 3600
+        timeout: int = 3600,
     ) -> "ProofResult":
         """Verify circuit from file.
-        
+
         Args:
             hdl_file: Path to HDL source file
             properties: Properties to verify (auto-inferred if None)
             timeout: Verification timeout in seconds
-            
+
         Returns:
             ProofResult containing verification status and proof
         """
@@ -348,74 +402,86 @@ class CircuitVerifier:
             file_path = Path(hdl_file)
             if not file_path.exists():
                 raise VerificationError(f"File not found: {hdl_file}")
-            
-            with open(file_path, 'r', encoding='utf-8') as f:
+
+            with open(file_path, "r", encoding="utf-8") as f:
                 hdl_code = f.read()
-            
+
             # Store file extension for HDL type detection
             self._current_file_extension = file_path.suffix.lower()
-            
+
             # Verify using the main verify method
             result = self.verify(hdl_code, properties, timeout)
-            
+
             # Clear file extension
             self._current_file_extension = None
-            
+
             return result
-            
+
         except Exception as e:
             self._current_file_extension = None
             raise VerificationError(f"File verification failed: {str(e)}") from e
-    
+
     def _parse_hdl(self, hdl_code: str) -> CircuitAST:
         """Parse HDL code into AST."""
         # Check file extension first if available
-        if hasattr(self, '_current_file_extension') and self._current_file_extension:
-            if self._current_file_extension in ['.vhd', '.vhdl']:
+        if hasattr(self, "_current_file_extension") and self._current_file_extension:
+            if self._current_file_extension in [".vhd", ".vhdl"]:
                 return self.vhdl_parser.parse(hdl_code)
-            elif self._current_file_extension in ['.v', '.sv']:
+            elif self._current_file_extension in [".v", ".sv"]:
                 return self.verilog_parser.parse(hdl_code)
-        
+
         # Fallback to content-based detection
         code_lower = hdl_code.lower()
-        
-        if any(keyword in code_lower for keyword in ['module', 'endmodule', 'assign', 'always']):
+
+        if any(
+            keyword in code_lower
+            for keyword in ["module", "endmodule", "assign", "always"]
+        ):
             # Looks like Verilog
             return self.verilog_parser.parse(hdl_code)
-        elif any(keyword in code_lower for keyword in ['entity', 'architecture', 'signal', 'process']):
+        elif any(
+            keyword in code_lower
+            for keyword in ["entity", "architecture", "signal", "process"]
+        ):
             # Looks like VHDL
             return self.vhdl_parser.parse(hdl_code)
         else:
             # Default to Verilog
             return self.verilog_parser.parse(hdl_code)
-    
-    def _generate_proof_with_llm(self, formal_spec: str, verification_goals: str, properties: List[str]) -> str:
+
+    def _generate_proof_with_llm(
+        self, formal_spec: str, verification_goals: str, properties: List[str]
+    ) -> str:
         """Generate proof using LLM with reliability patterns."""
-        prompt = self._create_proof_generation_prompt(formal_spec, verification_goals, properties)
-        
+        prompt = self._create_proof_generation_prompt(
+            formal_spec, verification_goals, properties
+        )
+
         def _llm_call():
             # Rate limit the API call
             if not self.llm_rate_limiter.wait_for_token(1, timeout=30):
                 raise VerificationError("Rate limit exceeded for LLM API calls")
-            
+
             response = self.llm_manager.generate_sync(
                 prompt,
                 temperature=self.temperature,
                 max_tokens=3000,
-                max_retries=1  # Let our circuit breaker handle retries
+                max_retries=1,  # Let our circuit breaker handle retries
             )
             return response.content
-        
+
         try:
             # Use circuit breaker for LLM calls
             return self.llm_circuit_breaker.call(_llm_call)
         except Exception as e:
             raise VerificationError(f"LLM proof generation failed: {str(e)}") from e
-    
-    def _create_proof_generation_prompt(self, formal_spec: str, verification_goals: str, properties: List[str]) -> str:
+
+    def _create_proof_generation_prompt(
+        self, formal_spec: str, verification_goals: str, properties: List[str]
+    ) -> str:
         """Create prompt for LLM proof generation."""
         prover_name = "Isabelle/HOL" if self.prover == "isabelle" else "Coq"
-        
+
         prompt = f"""You are an expert in formal verification using {prover_name}. 
 
 Given the following formal specification and verification goals, please generate complete proofs for all the properties.
@@ -437,9 +503,9 @@ Requirements:
 5. Ensure all lemmas and theorems are properly proven
 
 Please provide the complete proof code:"""
-        
+
         return prompt
-    
+
     def _verify_with_prover(self, proof_content: str) -> "ProverResult":
         """Verify proof with theorem prover using reliability patterns."""
         if not self._prover_interface:
@@ -448,26 +514,30 @@ Please provide the complete proof code:"""
                 if isabelle.check_installation():
                     self._prover_interface = isabelle
                 else:
-                    self.logger.warning("Isabelle not installed, using mock prover for testing")
+                    self.logger.warning(
+                        "Isabelle not installed, using mock prover for testing"
+                    )
                     self._prover_interface = MockProver()
             else:
                 coq = CoqInterface()
                 if coq.check_installation():
                     self._prover_interface = coq
                 else:
-                    self.logger.warning("Coq not installed, using mock prover for testing")
+                    self.logger.warning(
+                        "Coq not installed, using mock prover for testing"
+                    )
                     self._prover_interface = MockProver()
-        
+
         def _prover_call():
             return self._prover_interface.verify_proof(proof_content)
-        
+
         try:
             # Use circuit breaker and retry for prover calls
             return self.prover_circuit_breaker.call(_prover_call)
         except Exception as e:
             self.logger.error(f"Prover verification failed: {str(e)}")
             raise
-    
+
     def _refine_proof(self, proof_content: str, errors: List[str]) -> str:
         """Refine proof based on errors."""
         refinement_prompt = f"""The following proof has errors. Please fix them and provide a corrected version.
@@ -479,12 +549,10 @@ ERRORS:
 {chr(10).join(f'- {error}' for error in errors)}
 
 Please provide the corrected proof addressing all the errors above:"""
-        
+
         try:
             response = self.llm_manager.generate_sync(
-                refinement_prompt,
-                temperature=self.temperature,
-                max_tokens=3000
+                refinement_prompt, temperature=self.temperature, max_tokens=3000
             )
             return response.content
         except Exception as e:
@@ -495,11 +563,18 @@ Please provide the corrected proof addressing all the errors above:"""
 
 class ProofResult:
     """Result of formal verification attempt."""
-    
-    def __init__(self, status: str, proof_code: str = "", errors: List[str] = None, 
-                 properties_verified: List[str] = None, ast: CircuitAST = None,
-                 verification_id: str = None, duration_ms: float = 0.0, 
-                 refinement_attempts: int = 0):
+
+    def __init__(
+        self,
+        status: str,
+        proof_code: str = "",
+        errors: List[str] = None,
+        properties_verified: List[str] = None,
+        ast: CircuitAST = None,
+        verification_id: str = None,
+        duration_ms: float = 0.0,
+        refinement_attempts: int = 0,
+    ):
         self.status = status
         self.proof_code = proof_code
         self.errors = errors or []
@@ -508,17 +583,21 @@ class ProofResult:
         self.verification_id = verification_id
         self.duration_ms = duration_ms
         self.refinement_attempts = refinement_attempts
-        
-    @property 
+
+    @property
     def isabelle_code(self) -> str:
         """Get Isabelle proof code."""
         return self.proof_code if "theory" in self.proof_code.lower() else ""
-    
+
     @property
     def coq_code(self) -> str:
-        """Get Coq proof code.""" 
-        return self.proof_code if "Require" in self.proof_code or "Definition" in self.proof_code else ""
-        
+        """Get Coq proof code."""
+        return (
+            self.proof_code
+            if "Require" in self.proof_code or "Definition" in self.proof_code
+            else ""
+        )
+
     def export_latex(self, filename: str) -> None:
         """Export proof to LaTeX format."""
         latex_content = f"""\\documentclass{{article}}
@@ -550,15 +629,15 @@ Status: {self.status}
 {"\\end{itemize}" if self.errors else ""}
 
 \\end{{document}}"""
-        
-        with open(filename, 'w', encoding='utf-8') as f:
+
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(latex_content)
-    
+
     def export_systemverilog_assertions(self, filename: str) -> None:
         """Export properties as SystemVerilog assertions."""
         if not self.properties_verified:
             return
-            
+
         sva_content = "// Generated SystemVerilog Assertions\n\n"
         for i, prop in enumerate(self.properties_verified):
             sva_content += f"property prop_{i+1};\n"
@@ -566,10 +645,10 @@ Status: {self.status}
             sva_content += f"  @(posedge clk) {self._property_to_sva(prop)};\n"
             sva_content += "endproperty\n\n"
             sva_content += f"assert property (prop_{i+1});\n\n"
-        
-        with open(filename, 'w', encoding='utf-8') as f:
+
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(sva_content)
-    
+
     def _property_to_sva(self, property_formula: str) -> str:
         """Convert property formula to SystemVerilog assertion."""
         # Basic conversion - would need more sophisticated parsing
@@ -581,7 +660,7 @@ Status: {self.status}
 
 class ProverResult:
     """Result from theorem prover verification."""
-    
+
     def __init__(self, success: bool, errors: List[str] = None, output: str = ""):
         self.success = success
         self.errors = errors or []
