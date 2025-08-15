@@ -1,0 +1,47 @@
+{
+  "overall_passed": false,
+  "overall_score": 83.33333333333333,
+  "generation": "gen1",
+  "timestamp": "2025-08-15 03:18:54 UTC",
+  "duration_ms": 770.9226608276367,
+  "gates": [
+    {
+      "name": "functionality",
+      "passed": true,
+      "score": 100.0,
+      "details": {
+        "verification_status": "VERIFIED",
+        "properties_verified": 1,
+        "duration_ms": 5.567073822021484
+      },
+      "execution_time_ms": 12.414216995239258,
+      "recommendations": []
+    },
+    {
+      "name": "basic_tests",
+      "passed": true,
+      "score": 100.0,
+      "details": {
+        "return_code": 0,
+        "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.3, pytest-8.4.1, pluggy-1.6.0\nrootdir: /root/repo\nconfigfile: pyproject.toml\nplugins: anyio-4.10.0, xdist-3.8.0, cov-6.2.1\ncollected 16 items\n\ntests/test_core.py ................                                      [100%]\n\n============================== 16 passed in 0.07s ==============================\n",
+        "stderr": ""
+      },
+      "execution_time_ms": 728.4374237060547,
+      "recommendations": []
+    },
+    {
+      "name": "syntax",
+      "passed": false,
+      "score": 50.0,
+      "details": {
+        "return_code": 1,
+        "issues": 0,
+        "output": ""
+      },
+      "execution_time_ms": 29.35314178466797,
+      "recommendations": [
+        "Fix code style and syntax issues"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "overall_passed": false,
+  "overall_score": 58.35794925689697,
+  "generation": "gen3",
+  "timestamp": "2025-08-15 03:22:56 UTC",
+  "duration_ms": 2113.819122314453,
+  "gates": [
+    {
+      "name": "functionality",
+      "passed": true,
+      "score": 100.0,
+      "details": {
+        "verification_status": "VERIFIED",
+        "properties_verified": 1,
+        "duration_ms": 4.602909088134766
+      },
+      "execution_time_ms": 5.65648078918457,
+      "recommendations": []
+    },
+    {
+      "name": "tests",
+      "passed": false,
+      "score": 0.0,
+      "details": {
+        "return_code": 2,
+        "coverage_percent": 0.0,
+        "stdout": "rc/formal_circuits_gpt/optimization/resource_manager.py:6: in <module>\n    import psutil\nE   ModuleNotFoundError: No module named 'psutil'\n=========================== short test summary info ============================\nERROR tests/test_distributed_verifier.py\nERROR tests/test_ml_optimization.py\nERROR tests/test_quantum_optimization.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!\n============================== 3 errors in 0.86s ===============================\n",
+        "stderr": ""
+      },
+      "execution_time_ms": 1748.6324310302734,
+      "recommendations": [
+        "Fix failing tests",
+        "Increase test coverage to 75%+ (current: 0.0%)"
+      ]
+    },
+    {
+      "name": "security",
+      "passed": false,
+      "score": 0.0,
+      "details": {
+        "issues_found": 43,
+        "issues": [
+          "Potential hardcoded secret in exceptions.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in logger.py",
+          "Potential hardcoded secret in logger.py",
+          "Potential hardcoded secret in logger.py",
+          "Potential hardcoded secret in logger.py"
+        ],
+        "scan_complete": true
+      },
+      "execution_time_ms": 21.032094955444336,
+      "recommendations": [
+        "Fix security issues"
+      ]
+    },
+    {
+      "name": "performance",
+      "passed": true,
+      "score": 91.78974628448486,
+      "details": {
+        "cli_startup_ms": 328.41014862060547,
+        "cli_threshold_ms": 2000,
+        "cli_passed": true
+      },
+      "execution_time_ms": 328.43017578125,
+      "recommendations": []
+    },
+    {
+      "name": "optimization",
+      "passed": true,
+      "score": 100.0,
+      "details": {
+        "optimization_features_found": 38,
+        "total_features_checked": 5,
+        "features": [
+          "cache in cli.py",
+          "performance in core.py",
+          "cache in progressive_quality_gates.py",
+          "parallel in autonomous_sdlc_orchestrator.py",
+          "cache in __init__.py",
+          "cache in app.py",
+          "cache in routes.py",
+          "cache in schemas.py",
+          "cache in __init__.py",
+          "cache in cache_manager.py"
+        ]
+      },
+      "execution_time_ms": 9.517192840576172,
+      "recommendations": []
+    }
+  ]
+}

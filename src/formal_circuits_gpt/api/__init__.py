@@ -7,8 +7,8 @@ from .schemas import CircuitVerificationRequest, CircuitVerificationResponse
 __all__ = [
     "create_app",
     "verification_bp",
-    "circuits_bp", 
+    "circuits_bp",
     "cache_bp",
     "CircuitVerificationRequest",
-    "CircuitVerificationResponse"
+    "CircuitVerificationResponse",
 ]

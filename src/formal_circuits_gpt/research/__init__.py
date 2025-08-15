@@ -7,13 +7,13 @@ breakthrough contributions to the field suitable for academic publication.
 
 Modules:
 - formalized_property_inference: Novel property inference algorithm with theoretical foundations
-- adaptive_proof_refinement: Learning-based proof refinement with convergence analysis  
+- adaptive_proof_refinement: Learning-based proof refinement with convergence analysis
 - semantic_proof_caching: Semantic-aware caching with similarity metrics
 - parallel_verification_engine: Intelligent parallel verification with load balancing
 
 Academic Contributions:
 1. "Formalized Property Inference for Hardware Verification via Multi-Modal Circuit Analysis"
-2. "Adaptive Proof Strategy Selection for LLM-Assisted Verification" 
+2. "Adaptive Proof Strategy Selection for LLM-Assisted Verification"
 3. "Semantic-Aware Proof Caching for Scalable Hardware Verification"
 4. "Intelligent Task Scheduling for Parallel Hardware Verification"
 
@@ -26,12 +26,12 @@ from .formalized_property_inference import (
     FormalizedPropertyInference,
     CircuitPattern,
     CircuitFeatures,
-    PropertyInferenceResult
+    PropertyInferenceResult,
 )
 
 __all__ = [
-    'FormalizedPropertyInference',
-    'CircuitPattern', 
-    'CircuitFeatures',
-    'PropertyInferenceResult'
+    "FormalizedPropertyInference",
+    "CircuitPattern",
+    "CircuitFeatures",
+    "PropertyInferenceResult",
 ]

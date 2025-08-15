@@ -1,0 +1,47 @@
+{
+  "overall_passed": false,
+  "overall_score": 91.66666666666667,
+  "generation": "gen1",
+  "timestamp": "2025-08-15 03:19:59 UTC",
+  "duration_ms": 2743.0078983306885,
+  "gates": [
+    {
+      "name": "functionality",
+      "passed": true,
+      "score": 100.0,
+      "details": {
+        "verification_status": "VERIFIED",
+        "properties_verified": 1,
+        "duration_ms": 6.535053253173828
+      },
+      "execution_time_ms": 17.68016815185547,
+      "recommendations": []
+    },
+    {
+      "name": "basic_tests",
+      "passed": true,
+      "score": 100.0,
+      "details": {
+        "return_code": 0,
+        "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.3, pytest-8.4.1, pluggy-1.6.0\nrootdir: /root/repo\nconfigfile: pyproject.toml\nplugins: anyio-4.10.0, xdist-3.8.0, cov-6.2.1\ncollected 16 items\n\ntests/test_core.py ................                                      [100%]\n\n============================== 16 passed in 0.09s ==============================\n",
+        "stderr": ""
+      },
+      "execution_time_ms": 698.2066631317139,
+      "recommendations": []
+    },
+    {
+      "name": "syntax",
+      "passed": false,
+      "score": 75.0,
+      "details": {
+        "return_code": 1,
+        "issues": 381,
+        "output": "erator.py:451:89: E501 line too long (104 > 88 characters)\nsrc/formal_circuits_gpt/translators/property_generator.py:463:89: E501 line too long (158 > 88 characters)\nsrc/formal_circuits_gpt/translators/property_generator.py:475:13: F841 local variable 'out' is assigned to but never used\nsrc/formal_circuits_gpt/translators/property_generator.py:480:89: E501 line too long (90 > 88 characters)\nsrc/formal_circuits_gpt/translators/property_generator.py:513:89: E501 line too long (94 > 88 characters)\n"
+      },
+      "execution_time_ms": 2026.2243747711182,
+      "recommendations": [
+        "Fix code style and syntax issues"
+      ]
+    }
+  ]
+}

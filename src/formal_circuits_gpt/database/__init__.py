@@ -8,9 +8,9 @@ from .migrations import run_migrations
 __all__ = [
     "DatabaseManager",
     "ProofCache",
-    "CircuitModel", 
+    "CircuitModel",
     "VerificationResult",
     "ProofRepository",
     "CircuitRepository",
-    "run_migrations"
+    "run_migrations",
 ]

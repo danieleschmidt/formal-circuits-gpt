@@ -1,0 +1,74 @@
+{
+  "overall_passed": false,
+  "overall_score": 47.898560762405396,
+  "generation": "gen2",
+  "timestamp": "2025-08-15 03:23:04 UTC",
+  "duration_ms": 2085.8280658721924,
+  "gates": [
+    {
+      "name": "functionality",
+      "passed": true,
+      "score": 100.0,
+      "details": {
+        "verification_status": "VERIFIED",
+        "properties_verified": 1,
+        "duration_ms": 3.236055374145508
+      },
+      "execution_time_ms": 4.000663757324219,
+      "recommendations": []
+    },
+    {
+      "name": "tests",
+      "passed": false,
+      "score": 0.0,
+      "details": {
+        "return_code": 2,
+        "coverage_percent": 0.0,
+        "stdout": "rc/formal_circuits_gpt/optimization/resource_manager.py:6: in <module>\n    import psutil\nE   ModuleNotFoundError: No module named 'psutil'\n=========================== short test summary info ============================\nERROR tests/test_distributed_verifier.py\nERROR tests/test_ml_optimization.py\nERROR tests/test_quantum_optimization.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!\n============================== 3 errors in 0.83s ===============================\n",
+        "stderr": ""
+      },
+      "execution_time_ms": 1725.8927822113037,
+      "recommendations": [
+        "Fix failing tests",
+        "Increase test coverage to 75%+ (current: 0.0%)"
+      ]
+    },
+    {
+      "name": "security",
+      "passed": false,
+      "score": 0.0,
+      "details": {
+        "issues_found": 43,
+        "issues": [
+          "Potential hardcoded secret in exceptions.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in progressive_quality_gates.py",
+          "Potential hardcoded secret in logger.py",
+          "Potential hardcoded secret in logger.py",
+          "Potential hardcoded secret in logger.py",
+          "Potential hardcoded secret in logger.py"
+        ],
+        "scan_complete": true
+      },
+      "execution_time_ms": 19.284963607788086,
+      "recommendations": [
+        "Fix security issues"
+      ]
+    },
+    {
+      "name": "performance",
+      "passed": true,
+      "score": 91.59424304962158,
+      "details": {
+        "cli_startup_ms": 336.2302780151367,
+        "cli_threshold_ms": 2000,
+        "cli_passed": true
+      },
+      "execution_time_ms": 336.25078201293945,
+      "recommendations": []
+    }
+  ]
+}

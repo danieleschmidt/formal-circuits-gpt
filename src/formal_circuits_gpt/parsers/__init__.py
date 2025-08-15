@@ -6,10 +6,10 @@ from .ast_nodes import CircuitAST, Module, Port, Signal, Assignment
 
 __all__ = [
     "VerilogParser",
-    "VHDLParser", 
+    "VHDLParser",
     "CircuitAST",
     "Module",
     "Port",
     "Signal",
-    "Assignment"
+    "Assignment",
 ]
