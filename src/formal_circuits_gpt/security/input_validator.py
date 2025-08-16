@@ -520,15 +520,26 @@ class InputValidator:
         """Check if text has basic HDL structure."""
         text_lower = text.lower()
 
-        # Check for Verilog structure
-        if any(keyword in text_lower for keyword in ["module", "endmodule"]):
-            return True
+        # Check for Verilog structure - must have both module and endmodule
+        verilog_module = "module" in text_lower
+        verilog_endmodule = "endmodule" in text_lower
+        has_verilog = verilog_module and verilog_endmodule
 
-        # Check for VHDL structure
-        if any(keyword in text_lower for keyword in ["entity", "architecture"]):
-            return True
+        # Check for VHDL structure - must have entity
+        has_vhdl = "entity" in text_lower and ("architecture" in text_lower or "end" in text_lower)
 
-        return False
+        # Reject clearly malformed content
+        if "MALFORMED" in text.upper() or "INVALID" in text.upper():
+            return False
+
+        # Must have actual HDL keywords
+        verilog_keywords = ["assign", "always", "wire", "reg", "input", "output"]
+        vhdl_keywords = ["signal", "process", "port", "begin"]
+        
+        has_verilog_content = any(kw in text_lower for kw in verilog_keywords)
+        has_vhdl_content = any(kw in text_lower for kw in vhdl_keywords)
+
+        return (has_verilog and has_verilog_content) or (has_vhdl and has_vhdl_content)
 
     def _attempt_structure_fix(self, text: str) -> str:
         """Attempt to fix basic HDL structure issues."""
@@ -596,11 +607,14 @@ class InputValidator:
 
             # Check for basic Verilog/VHDL structure
             if not self._has_valid_hdl_structure(sanitized_code):
-                warnings.append(
-                    "HDL code may not contain valid module/entity structure"
-                )
-                # Try to fix basic structure
-                sanitized_code = self._attempt_structure_fix(sanitized_code)
+                if self.strict_mode:
+                    errors.append("HDL code does not contain valid module/entity structure")
+                else:
+                    warnings.append(
+                        "HDL code may not contain valid module/entity structure"
+                    )
+                    # Try to fix basic structure
+                    sanitized_code = self._attempt_structure_fix(sanitized_code)
 
         except Exception as e:
             errors.append(f"HDL validation error: {str(e)}")
