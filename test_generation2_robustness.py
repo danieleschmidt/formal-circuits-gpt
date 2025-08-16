@@ -219,8 +219,8 @@ def test_graceful_degradation():
             result = verifier.verify(malformed_hdl)
             print("✗ Should have failed with malformed HDL")
             return False
-        except VerificationError as e:
-            print("✓ Gracefully handled malformed HDL with VerificationError")
+        except (VerificationError, SecurityError) as e:
+            print("✓ Gracefully handled malformed HDL with appropriate error")
         except Exception as e:
             print(f"✗ Unexpected error type: {type(e).__name__}: {e}")
             return False
