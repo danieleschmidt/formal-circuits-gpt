@@ -87,6 +87,22 @@ class HealthChecker:
                 message=f"Health check failed: {str(e)}",
             )
 
+    def check_health(self) -> Dict[str, Any]:
+        """Main health check method for compatibility."""
+        results = self.check_all()
+        overall_status, overall_message = self.get_overall_status(results)
+        
+        return {
+            "status": overall_status.value,
+            "message": overall_message,
+            "components": {name: {
+                "status": check.status.value,
+                "message": check.message,
+                "response_time_ms": check.response_time_ms,
+                "metadata": check.metadata
+            } for name, check in results.items()}
+        }
+
     def get_overall_status(
         self, results: Dict[str, HealthCheck]
     ) -> Tuple[HealthStatus, str]:
