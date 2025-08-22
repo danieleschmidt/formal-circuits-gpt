@@ -1,0 +1,21 @@
+{
+  "operation_name": "test_operation",
+  "duration_ms": 10.4143240000667,
+  "memory_peak_mb": 0,
+  "memory_delta_mb": 0,
+  "cpu_percent": 0,
+  "disk_io_mb": 0,
+  "network_io_mb": 0,
+  "gc_collections": -8,
+  "metrics": [
+    {
+      "name": "test_metric",
+      "value": 42.0,
+      "unit": "units",
+      "timestamp": 1755894871.4465375,
+      "context": {}
+    }
+  ],
+  "success": true,
+  "error": null
+}

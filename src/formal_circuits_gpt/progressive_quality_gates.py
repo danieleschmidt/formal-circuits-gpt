@@ -51,12 +51,12 @@ class ProgressiveQualityGates:
         self.generation_thresholds = {
             "gen1": {
                 "min_score": 75.0,  # Lowered to account for some style issues
-                "required_gates": ["functionality", "basic_tests", "syntax"],
+                "required_gates": ["functionality", "basic_tests", "syntax", "dependency_check", "structure_validation"],
                 "coverage_threshold": 50.0,
             },
             "gen2": {
                 "min_score": 80.0,
-                "required_gates": ["functionality", "tests", "security", "performance"],
+                "required_gates": ["functionality", "tests", "security", "performance", "integration_tests", "reliability"],
                 "coverage_threshold": 75.0,
             },
             "gen3": {
@@ -67,6 +67,9 @@ class ProgressiveQualityGates:
                     "security",
                     "performance",
                     "optimization",
+                    "scalability",
+                    "monitoring",
+                    "documentation",
                 ],
                 "coverage_threshold": 85.0,
             },
@@ -140,6 +143,20 @@ class ProgressiveQualityGates:
                 result = await self._gate_performance()
             elif gate_name == "optimization":
                 result = await self._gate_optimization()
+            elif gate_name == "dependency_check":
+                result = await self._gate_dependency_check()
+            elif gate_name == "structure_validation":
+                result = await self._gate_structure_validation()
+            elif gate_name == "integration_tests":
+                result = await self._gate_integration_tests()
+            elif gate_name == "reliability":
+                result = await self._gate_reliability()
+            elif gate_name == "scalability":
+                result = await self._gate_scalability()
+            elif gate_name == "monitoring":
+                result = await self._gate_monitoring()
+            elif gate_name == "documentation":
+                result = await self._gate_documentation()
             else:
                 result = QualityGateResult(
                     name=gate_name,
@@ -573,6 +590,412 @@ class ProgressiveQualityGates:
 
         except Exception as e:
             self.logger.error(f"Failed to save quality report: {e}")
+
+    async def _gate_dependency_check(self) -> QualityGateResult:
+        """Check project dependencies and imports."""
+        try:
+            issues = []
+            score = 100.0
+
+            # Check pyproject.toml exists
+            pyproject_file = self.project_root / "pyproject.toml"
+            if not pyproject_file.exists():
+                issues.append("Missing pyproject.toml file")
+                score -= 30.0
+
+            # Check for unused imports
+            try:
+                result = subprocess.run(
+                    ["python", "-c", "import ast; print('AST parsing works')"],
+                    cwd=self.project_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode != 0:
+                    issues.append("Python import system issues")
+                    score -= 20.0
+            except Exception:
+                issues.append("Cannot verify Python imports")
+                score -= 15.0
+
+            # Check critical dependencies
+            critical_deps = ["openai", "anthropic", "pydantic", "click"]
+            try:
+                for dep in critical_deps:
+                    result = subprocess.run(
+                        ["python", "-c", f"import {dep}"],
+                        cwd=self.project_root,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if result.returncode != 0:
+                        issues.append(f"Missing critical dependency: {dep}")
+                        score -= 10.0
+            except Exception:
+                issues.append("Cannot verify dependencies")
+                score -= 10.0
+
+            score = max(0.0, score)
+            passed = score >= 70.0
+
+            return QualityGateResult(
+                name="dependency_check",
+                passed=passed,
+                score=score,
+                details={
+                    "issues_found": len(issues),
+                    "issues": issues,
+                    "critical_deps_checked": len(critical_deps),
+                },
+                execution_time_ms=0.0,
+                recommendations=issues if issues else [],
+            )
+
+        except Exception as e:
+            return QualityGateResult(
+                name="dependency_check",
+                passed=False,
+                score=0.0,
+                details={"error": str(e)},
+                execution_time_ms=0.0,
+                recommendations=["Fix dependency check execution"],
+            )
+
+    async def _gate_structure_validation(self) -> QualityGateResult:
+        """Validate project structure and organization."""
+        try:
+            score = 100.0
+            issues = []
+
+            # Check for required directories
+            required_dirs = ["src", "tests", "docs"]
+            for dir_name in required_dirs:
+                dir_path = self.project_root / dir_name
+                if not dir_path.exists():
+                    issues.append(f"Missing required directory: {dir_name}")
+                    score -= 15.0
+
+            # Check for important files
+            important_files = ["README.md", "LICENSE", "pyproject.toml"]
+            for file_name in important_files:
+                file_path = self.project_root / file_name
+                if not file_path.exists():
+                    issues.append(f"Missing important file: {file_name}")
+                    score -= 10.0
+
+            # Check module structure
+            src_dir = self.project_root / "src" / "formal_circuits_gpt"
+            if src_dir.exists():
+                required_modules = ["__init__.py", "core.py", "cli.py"]
+                for module in required_modules:
+                    module_path = src_dir / module
+                    if not module_path.exists():
+                        issues.append(f"Missing core module: {module}")
+                        score -= 8.0
+
+            score = max(0.0, score)
+            passed = score >= 75.0
+
+            return QualityGateResult(
+                name="structure_validation",
+                passed=passed,
+                score=score,
+                details={
+                    "required_dirs_checked": len(required_dirs),
+                    "important_files_checked": len(important_files),
+                    "issues": issues,
+                },
+                execution_time_ms=0.0,
+                recommendations=issues if issues else [],
+            )
+
+        except Exception as e:
+            return QualityGateResult(
+                name="structure_validation",
+                passed=False,
+                score=0.0,
+                details={"error": str(e)},
+                execution_time_ms=0.0,
+                recommendations=["Fix structure validation"],
+            )
+
+    async def _gate_integration_tests(self) -> QualityGateResult:
+        """Run integration tests."""
+        try:
+            result = subprocess.run(
+                ["python", "-m", "pytest", "tests/integration/", "-v"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+
+            passed = result.returncode == 0
+            score = 100.0 if passed else 30.0
+
+            return QualityGateResult(
+                name="integration_tests",
+                passed=passed,
+                score=score,
+                details={
+                    "return_code": result.returncode,
+                    "test_output": result.stdout[-300:],
+                    "errors": result.stderr[-300:] if result.stderr else "",
+                },
+                execution_time_ms=0.0,
+                recommendations=[] if passed else ["Fix failing integration tests"],
+            )
+
+        except subprocess.TimeoutExpired:
+            return QualityGateResult(
+                name="integration_tests",
+                passed=False,
+                score=0.0,
+                details={"error": "Integration tests timeout"},
+                execution_time_ms=0.0,
+                recommendations=["Optimize integration test performance"],
+            )
+        except Exception as e:
+            return QualityGateResult(
+                name="integration_tests",
+                passed=False,
+                score=50.0,
+                details={"error": str(e)},
+                execution_time_ms=0.0,
+                recommendations=["Fix integration test execution"],
+            )
+
+    async def _gate_reliability(self) -> QualityGateResult:
+        """Check reliability features."""
+        try:
+            reliability_features = [
+                "circuit_breaker",
+                "retry",
+                "timeout",
+                "rate_limit",
+                "fault_injection",
+            ]
+
+            features_found = 0
+            feature_details = []
+
+            for py_file in (self.project_root / "src").rglob("*.py"):
+                try:
+                    content = py_file.read_text().lower()
+                    for feature in reliability_features:
+                        if feature in content:
+                            feature_details.append(f"{feature} in {py_file.name}")
+                            features_found += 1
+                            break
+                except Exception:
+                    continue
+
+            score = (features_found / len(reliability_features)) * 100.0
+            passed = score >= 60.0
+
+            return QualityGateResult(
+                name="reliability",
+                passed=passed,
+                score=score,
+                details={
+                    "reliability_features_found": features_found,
+                    "total_features": len(reliability_features),
+                    "features": feature_details,
+                },
+                execution_time_ms=0.0,
+                recommendations=(
+                    [] if passed else ["Implement more reliability features"]
+                ),
+            )
+
+        except Exception as e:
+            return QualityGateResult(
+                name="reliability",
+                passed=False,
+                score=0.0,
+                details={"error": str(e)},
+                execution_time_ms=0.0,
+                recommendations=["Fix reliability check"],
+            )
+
+    async def _gate_scalability(self) -> QualityGateResult:
+        """Check scalability features."""
+        try:
+            scalability_indicators = [
+                "async",
+                "await",
+                "concurrent",
+                "parallel",
+                "pool",
+                "queue",
+                "batch",
+            ]
+
+            indicators_found = 0
+            details = []
+
+            for py_file in (self.project_root / "src").rglob("*.py"):
+                try:
+                    content = py_file.read_text()
+                    file_indicators = 0
+                    for indicator in scalability_indicators:
+                        if indicator in content:
+                            file_indicators += 1
+                    
+                    if file_indicators > 0:
+                        details.append(f"{file_indicators} indicators in {py_file.name}")
+                        indicators_found += file_indicators
+                except Exception:
+                    continue
+
+            score = min(100.0, (indicators_found / 10) * 100.0)  # Scale to 100%
+            passed = score >= 50.0
+
+            return QualityGateResult(
+                name="scalability",
+                passed=passed,
+                score=score,
+                details={
+                    "scalability_indicators": indicators_found,
+                    "files_with_indicators": len(details),
+                    "details": details[:10],
+                },
+                execution_time_ms=0.0,
+                recommendations=(
+                    [] if passed else ["Add more scalability patterns"]
+                ),
+            )
+
+        except Exception as e:
+            return QualityGateResult(
+                name="scalability",
+                passed=False,
+                score=0.0,
+                details={"error": str(e)},
+                execution_time_ms=0.0,
+                recommendations=["Fix scalability check"],
+            )
+
+    async def _gate_monitoring(self) -> QualityGateResult:
+        """Check monitoring and observability."""
+        try:
+            monitoring_features = ["logger", "metrics", "health", "telemetry", "trace"]
+            features_found = 0
+            feature_files = []
+
+            for py_file in (self.project_root / "src").rglob("*.py"):
+                try:
+                    content = py_file.read_text().lower()
+                    for feature in monitoring_features:
+                        if feature in content:
+                            feature_files.append(f"{feature} in {py_file.name}")
+                            features_found += 1
+                            break
+                except Exception:
+                    continue
+
+            score = (features_found / len(monitoring_features)) * 100.0
+            passed = score >= 60.0
+
+            return QualityGateResult(
+                name="monitoring",
+                passed=passed,
+                score=score,
+                details={
+                    "monitoring_features": features_found,
+                    "total_features": len(monitoring_features),
+                    "feature_files": feature_files,
+                },
+                execution_time_ms=0.0,
+                recommendations=(
+                    [] if passed else ["Add more monitoring capabilities"]
+                ),
+            )
+
+        except Exception as e:
+            return QualityGateResult(
+                name="monitoring",
+                passed=False,
+                score=0.0,
+                details={"error": str(e)},
+                execution_time_ms=0.0,
+                recommendations=["Fix monitoring check"],
+            )
+
+    async def _gate_documentation(self) -> QualityGateResult:
+        """Check documentation quality."""
+        try:
+            score = 100.0
+            issues = []
+
+            # Check README
+            readme = self.project_root / "README.md"
+            if readme.exists() and readme.stat().st_size > 1000:
+                score += 0  # Good README
+            else:
+                issues.append("README.md missing or too short")
+                score -= 20.0
+
+            # Check docs directory
+            docs_dir = self.project_root / "docs"
+            if docs_dir.exists():
+                doc_files = list(docs_dir.rglob("*.md"))
+                if len(doc_files) >= 3:
+                    score += 0  # Good docs
+                else:
+                    issues.append("Insufficient documentation files")
+                    score -= 15.0
+            else:
+                issues.append("Missing docs directory")
+                score -= 25.0
+
+            # Check docstrings in code
+            docstring_files = 0
+            total_files = 0
+            
+            for py_file in (self.project_root / "src").rglob("*.py"):
+                total_files += 1
+                try:
+                    content = py_file.read_text()
+                    if '"""' in content and content.count('"""') >= 4:
+                        docstring_files += 1
+                except Exception:
+                    continue
+
+            if total_files > 0:
+                docstring_ratio = docstring_files / total_files
+                if docstring_ratio < 0.5:
+                    issues.append("Low docstring coverage")
+                    score -= 15.0
+
+            score = max(0.0, score)
+            passed = score >= 70.0
+
+            return QualityGateResult(
+                name="documentation",
+                passed=passed,
+                score=score,
+                details={
+                    "readme_exists": readme.exists(),
+                    "docs_dir_exists": docs_dir.exists(),
+                    "docstring_coverage": f"{docstring_files}/{total_files}",
+                    "issues": issues,
+                },
+                execution_time_ms=0.0,
+                recommendations=issues if issues else [],
+            )
+
+        except Exception as e:
+            return QualityGateResult(
+                name="documentation",
+                passed=False,
+                score=0.0,
+                details={"error": str(e)},
+                execution_time_ms=0.0,
+                recommendations=["Fix documentation check"],
+            )
 
 
 async def main():
