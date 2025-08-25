@@ -6,7 +6,7 @@ import time
 from unittest.mock import Mock, patch, AsyncMock
 from dataclasses import asdict
 
-from src.formal_circuits_gpt.concurrent.distributed_verifier import (
+from src.formal_circuits_gpt.concurrent_processing.distributed_verifier import (
     DistributedVerifier,
     NodeRole,
     NodeStatus,
@@ -16,7 +16,7 @@ from src.formal_circuits_gpt.concurrent.distributed_verifier import (
     AutoScalingPolicy,
     PerformanceTracker
 )
-from src.formal_circuits_gpt.concurrent.parallel_verifier import VerificationTask
+from src.formal_circuits_gpt.concurrent_processing.parallel_verifier import VerificationTask
 
 
 class TestDistributedVerifier:
