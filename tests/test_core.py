@@ -15,7 +15,7 @@ class TestCircuitVerifier:
 
     def test_init_default_params(self):
         """Test CircuitVerifier initialization with default parameters."""
-        verifier = CircuitVerifier()
+        verifier = CircuitVerifier(strict_mode=False)
         assert verifier.prover == "isabelle"
         assert verifier.model == "gpt-4-turbo"
         assert verifier.temperature == 0.1
@@ -54,7 +54,7 @@ class TestCircuitVerifier:
         mock_result.errors = []
         mock_verify.return_value = mock_result
         
-        verifier = CircuitVerifier()
+        verifier = CircuitVerifier(strict_mode=False)
         
         # Mock the property generator instance
         with patch.object(verifier, 'property_generator') as mock_prop_gen:
@@ -73,13 +73,13 @@ class TestCircuitVerifier:
         """Test verification with parse error."""
         mock_parse.side_effect = Exception("Parse error")
         
-        verifier = CircuitVerifier()
+        verifier = CircuitVerifier(strict_mode=False)
         with pytest.raises(VerificationError, match="Failed to parse HDL code: Parse error"):
             verifier.verify("invalid hdl")
 
     def test_verify_file_not_exists(self):
         """Test verify_file with non-existent file."""
-        verifier = CircuitVerifier()
+        verifier = CircuitVerifier(strict_mode=False)
         with pytest.raises(VerificationError, match="File not found"):
             verifier.verify_file("nonexistent.v")
 
@@ -94,7 +94,7 @@ class TestCircuitVerifier:
             with patch.object(CircuitVerifier, 'verify') as mock_verify:
                 mock_verify.return_value = Mock(spec=ProofResult)
                 
-                verifier = CircuitVerifier()
+                verifier = CircuitVerifier(strict_mode=False)
                 verifier.verify_file(temp_file)
                 
                 mock_verify.assert_called_once_with("module test(); endmodule", None, 3600)
@@ -103,7 +103,7 @@ class TestCircuitVerifier:
 
     def test_parse_hdl_verilog(self):
         """Test HDL parsing for Verilog."""
-        verifier = CircuitVerifier()
+        verifier = CircuitVerifier(strict_mode=False)
         
         with patch.object(verifier.verilog_parser, 'parse') as mock_parse:
             mock_parse.return_value = Mock(spec=CircuitAST)
@@ -115,7 +115,7 @@ class TestCircuitVerifier:
 
     def test_parse_hdl_vhdl(self):
         """Test HDL parsing for VHDL."""
-        verifier = CircuitVerifier()
+        verifier = CircuitVerifier(strict_mode=False)
         
         with patch.object(verifier.vhdl_parser, 'parse') as mock_parse:
             mock_parse.return_value = Mock(spec=CircuitAST)
