@@ -1,1 +1,0 @@
-"""Benchmark tests for formal-circuits-gpt."""
